@@ -54,11 +54,15 @@ public sealed class StrategyEngine
         var newestZone = execution.Zones.FirstOrDefault();
         var newestZoneInvalidated = newestZone?.Invalidated == true;
         var exceptions = AnalyzeExceptions(executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone);
+        var lowerTimeframesOppose =
+            bias.Direction == "bullish" && (m30Bias.Direction == "bearish" || m15Bias.Direction == "bearish") ||
+            bias.Direction == "bearish" && (m30Bias.Direction == "bullish" || m15Bias.Direction == "bullish");
         var sessionBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && !session.Ok;
-        var counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && session.Ok && exceptions.CounterTrend && !exceptions.CounterBreakReady;
+        var lowerTimeframeBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && session.Ok && lowerTimeframesOppose;
+        var counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && session.Ok && !lowerTimeframesOppose && exceptions.CounterTrend && !exceptions.CounterBreakReady;
         var counterTrendStrictRisk = exceptions.CounterTrend && exceptions.CounterBreakReady;
-        var alignedBuy = rawAlignedBuy && continuationConfirmed && session.Ok && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
-        var alignedSell = rawAlignedSell && continuationConfirmed && session.Ok && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
+        var alignedBuy = rawAlignedBuy && continuationConfirmed && session.Ok && !lowerTimeframesOppose && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
+        var alignedSell = rawAlignedSell && continuationConfirmed && session.Ok && !lowerTimeframesOppose && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
 
         var className = "wait";
         var label = "STATUS: WAIT";
@@ -96,6 +100,13 @@ public sealed class StrategyEngine
             label = bias.Direction == "bullish" ? "STATUS: WAIT SESSION BUY" : "STATUS: WAIT SESSION SELL";
             phase = "SESSION GATE";
             note = "The setup is formed, but the document prefers London or New York volume. Wait for the active session window before BUY/SELL.";
+        }
+        else if (lowerTimeframeBlocked)
+        {
+            className = "caution";
+            label = bias.Direction == "bullish" ? "STATUS: WAIT CONFIRM BUY" : "STATUS: WAIT CONFIRM SELL";
+            phase = "TOP-DOWN GATE";
+            note = "30M or 15M is still against the active bias. Wait for lower-timeframe confirmation before BUY/SELL.";
         }
         else if (counterTrendBlocked)
         {
@@ -201,8 +212,8 @@ public sealed class StrategyEngine
                 new ChecklistItem
                 {
                     Label = "Top-down story",
-                    Ok = d1Bias.Direction == "neutral" || d1Bias.Direction == bias.Direction || bias.Direction == "neutral",
-                    Text = $"Daily {d1Bias.Direction}, 4H {h4Bias.Direction}, 1H {h1Bias.Direction}, 30M {m30Bias.Direction}, 15M {m15Bias.Direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.",
+                    Ok = (d1Bias.Direction == "neutral" || d1Bias.Direction == bias.Direction || bias.Direction == "neutral") && !lowerTimeframesOppose,
+                    Text = $"Daily {d1Bias.Direction}, 4H {h4Bias.Direction}, 1H {h1Bias.Direction}, 30M {m30Bias.Direction}, 15M {m15Bias.Direction}. Use Daily as context, 4H overrides 1H, then execute on 5M. {(lowerTimeframesOppose ? "30M/15M must stop opposing the active bias before BUY/SELL." : "30M/15M are not opposing the active bias.")}",
                 },
                 new ChecklistItem { Label = "Trading session", Ok = session.Ok, Text = session.Ok ? session.Text : $"{session.Text} BUY/SELL is gated until London or New York volume." },
                 new ChecklistItem { Label = "4H/1H bias", Ok = bias.Direction != "neutral", Text = $"{bias.Reason} Indication level: {FormatNullable(indicationLevel)}." },

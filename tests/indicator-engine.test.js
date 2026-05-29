@@ -343,6 +343,26 @@ function testWideZoneStopUsesEnteringCandleFallback() {
   assert(decision.risk.text.includes("entering candle stop"), "risk text should explain the entering-candle fallback");
 }
 
+function testLowerTimeframeOppositionBlocksEntry() {
+  const bullish = htfBullish();
+  const bearishM15 = htfBearish();
+  const decision = engine.calculateStrategyDecision({
+    executionCandles: executionWithZoneTap(true),
+    m15Candles: bearishM15,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles: bullish,
+  });
+  const topDown = decision.checklist.find((item) => item.label === "Top-down story");
+
+  assert.strictEqual(decision.phase, "TOP-DOWN GATE", "lower-timeframe opposition should use the top-down gate");
+  assert.strictEqual(decision.label, "STATUS: WAIT CONFIRM BUY", "lower-timeframe opposition must not become BUY");
+  assert.strictEqual(decision.className, "caution", "top-down-gated setup should use caution coloring");
+  assert(topDown && !topDown.ok, "top-down checklist should fail when 15M opposes the active bias");
+  assert(topDown.text.includes("30M/15M must stop opposing"), "top-down checklist should explain the required confirmation");
+}
+
 function testPineIndicatorIsPriceActionOnly() {
   assert(!/ta\.ema|useEmaTrend|Trend EMA/i.test(pineCode), "Pine indicator must not use EMA trend filtering");
   assert(/array\.size\(zones\) > 1/.test(pineCode), "Pine indicator should keep only the newest zone");
@@ -407,6 +427,7 @@ testAPlusRequiresWickOnlyZoneTap();
 testCounterTrendNeedsStrongFullBodyBreakAndStrictRisk();
 testSessionGateBlocksBuyOutsidePreferredWindows();
 testWideZoneStopUsesEnteringCandleFallback();
+testLowerTimeframeOppositionBlocksEntry();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();

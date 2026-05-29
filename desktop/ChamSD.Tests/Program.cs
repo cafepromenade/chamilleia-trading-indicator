@@ -9,6 +9,7 @@ tests.APlusRequiresWickOnlyZoneTap();
 tests.CounterTrendNeedsStrongFullBodyBreakAndStrictRisk();
 tests.SessionGateBlocksBuyOutsidePreferredWindows();
 tests.WideZoneStopUsesEnteringCandleFallback();
+tests.LowerTimeframeOppositionBlocksEntry();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
@@ -211,6 +212,26 @@ internal sealed class DesktopStrategyTests
         Assert(decision.Risk.Risk == 3, "entering candle stop should shrink risk inside the 50-point guide");
         Assert(decision.Risk.StopWithinLimit, "entering candle fallback should make the stop acceptable");
         Assert(decision.Risk.Text.Contains("entering candle stop", StringComparison.OrdinalIgnoreCase), "risk text should explain the entering-candle fallback");
+    }
+
+    public void LowerTimeframeOppositionBlocksEntry()
+    {
+        var bullish = HtfBullish();
+        var bearishM15 = HtfBearish();
+        var decision = _engine.CalculateStrategyDecision(
+            ExecutionWithZoneTap(tapIsWickOnly: true),
+            bearishM15,
+            bullish,
+            bullish,
+            bullish,
+            bullish);
+        var topDown = Checklist(decision, "Top-down story");
+
+        Assert(decision.Phase == "TOP-DOWN GATE", "lower-timeframe opposition should use the top-down gate");
+        Assert(decision.Label == "STATUS: WAIT CONFIRM BUY", "lower-timeframe opposition must not become BUY");
+        Assert(decision.ClassName == "caution", "top-down-gated setup should use caution coloring");
+        Assert(!topDown.Ok, "top-down checklist should fail when 15M opposes the active bias");
+        Assert(topDown.Text.Contains("30M/15M must stop opposing", StringComparison.OrdinalIgnoreCase), "top-down checklist should explain the required confirmation");
     }
 
     public void OpenCodeUsesOnlyFreeModelLadder()

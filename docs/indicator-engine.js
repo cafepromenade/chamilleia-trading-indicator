@@ -709,11 +709,16 @@
     const newestZone = execution.zones[0] || null;
     const newestZoneInvalidated = Boolean(newestZone?.invalidated);
     const exceptions = analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone });
+    const lowerTimeframesOppose = Boolean(
+      (bias.direction === "bullish" && (m30Bias.direction === "bearish" || m15Bias.direction === "bearish")) ||
+      (bias.direction === "bearish" && (m30Bias.direction === "bullish" || m15Bias.direction === "bullish"))
+    );
     const sessionBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && !session.ok;
-    const counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && session.ok && exceptions.counterTrend && !exceptions.counterBreakReady;
+    const lowerTimeframeBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && session.ok && lowerTimeframesOppose;
+    const counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && session.ok && !lowerTimeframesOppose && exceptions.counterTrend && !exceptions.counterBreakReady;
     const counterTrendStrictRisk = exceptions.counterTrend && exceptions.counterBreakReady;
-    const alignedBuy = rawAlignedBuy && continuationConfirmed && session.ok && (!exceptions.counterTrend || exceptions.counterBreakReady);
-    const alignedSell = rawAlignedSell && continuationConfirmed && session.ok && (!exceptions.counterTrend || exceptions.counterBreakReady);
+    const alignedBuy = rawAlignedBuy && continuationConfirmed && session.ok && !lowerTimeframesOppose && (!exceptions.counterTrend || exceptions.counterBreakReady);
+    const alignedSell = rawAlignedSell && continuationConfirmed && session.ok && !lowerTimeframesOppose && (!exceptions.counterTrend || exceptions.counterBreakReady);
 
     let className = "wait";
     let label = "STATUS: WAIT";
@@ -744,6 +749,11 @@
       label = bias.direction === "bullish" ? "STATUS: WAIT SESSION BUY" : "STATUS: WAIT SESSION SELL";
       phase = "SESSION GATE";
       note = "The setup is formed, but the document prefers London or New York volume. Wait for the active session window before BUY/SELL.";
+    } else if (lowerTimeframeBlocked) {
+      className = "caution";
+      label = bias.direction === "bullish" ? "STATUS: WAIT CONFIRM BUY" : "STATUS: WAIT CONFIRM SELL";
+      phase = "TOP-DOWN GATE";
+      note = "30M or 15M is still against the active bias. Wait for lower-timeframe confirmation before BUY/SELL.";
     } else if (counterTrendBlocked) {
       className = "caution";
       label = bias.direction === "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
@@ -825,7 +835,7 @@
       execution,
       checklist: [
         { label: "ICC phase", ok: phase !== "BASELINE SCAN", text: `${phase}: ${note}` },
-        { label: "Top-down story", ok: d1Bias.direction === "neutral" || d1Bias.direction === bias.direction || bias.direction === "neutral", text: `Daily ${d1Bias.direction}, 4H ${h4Bias.direction}, 1H ${h1Bias.direction}, 30M ${m30Bias.direction}, 15M ${m15Bias.direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.` },
+        { label: "Top-down story", ok: (d1Bias.direction === "neutral" || d1Bias.direction === bias.direction || bias.direction === "neutral") && !lowerTimeframesOppose, text: `Daily ${d1Bias.direction}, 4H ${h4Bias.direction}, 1H ${h1Bias.direction}, 30M ${m30Bias.direction}, 15M ${m15Bias.direction}. Use Daily as context, 4H overrides 1H, then execute on 5M. ${lowerTimeframesOppose ? "30M/15M must stop opposing the active bias before BUY/SELL." : "30M/15M are not opposing the active bias."}` },
         { label: "Trading session", ok: session.ok, text: session.ok ? session.text : `${session.text} BUY/SELL is gated until London or New York volume.` },
         { label: "4H/1H bias", ok: bias.direction !== "neutral", text: `${bias.reason} Indication level: ${indicationLevel ?? "-"}.` },
         { label: "No-trade zone", ok: indicationLevel !== null || rangeHigh === null || rangeLow === null, text: rangeHigh !== null && rangeLow !== null ? `Baseline range is ${rangeLow}-${rangeHigh}. Body-close outside this range creates the Primary Indication Level; wicks alone do not count on HTF.` : "Waiting for enough HTF swing structure to define the baseline no-trade zone. Body-close outside this range creates the Primary Indication Level; wicks alone do not count on HTF." },
