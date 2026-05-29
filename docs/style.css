@@ -34,6 +34,57 @@ body {
 .dashboard-only {
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background 320ms ease, color 320ms ease;
+}
+
+.dashboard-only.status-buy {
+  background: #07130f;
+}
+
+.dashboard-only.status-sell {
+  background: #16090c;
+}
+
+.dashboard-only.status-wait,
+.dashboard-only.status-caution {
+  background: #151104;
+}
+
+.dashboard-only.status-no-trade {
+  background: #0b1018;
+}
+
+.status-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.status-flash.buy {
+  background: rgba(66, 211, 146, 0.22);
+}
+
+.status-flash.sell {
+  background: rgba(255, 107, 107, 0.24);
+}
+
+.status-flash.wait {
+  background: rgba(246, 196, 81, 0.16);
+}
+
+.status-flash.no-trade {
+  background: rgba(138, 180, 255, 0.16);
+}
+
+.status-flash.caution {
+  background: rgba(246, 196, 81, 0.24);
+}
+
+.status-flash.status-change {
+  animation: status-flash-burst 920ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .live-status-bar {
@@ -342,6 +393,24 @@ main {
   height: calc(100vh - 3.4rem);
   min-height: 0;
   overflow: hidden;
+  transition: box-shadow 320ms ease, border-color 320ms ease;
+}
+
+.dashboard-only.status-buy .data-dashboard {
+  box-shadow: inset 0 0 0 2px rgba(66, 211, 146, 0.22), inset 0 0 64px rgba(66, 211, 146, 0.08);
+}
+
+.dashboard-only.status-sell .data-dashboard {
+  box-shadow: inset 0 0 0 2px rgba(255, 107, 107, 0.22), inset 0 0 64px rgba(255, 107, 107, 0.08);
+}
+
+.dashboard-only.status-wait .data-dashboard,
+.dashboard-only.status-caution .data-dashboard {
+  box-shadow: inset 0 0 0 2px rgba(246, 196, 81, 0.18), inset 0 0 64px rgba(246, 196, 81, 0.07);
+}
+
+.dashboard-only.status-no-trade .data-dashboard {
+  box-shadow: inset 0 0 0 2px rgba(138, 180, 255, 0.16), inset 0 0 64px rgba(138, 180, 255, 0.06);
 }
 
 .dashboard-only .status-lab {
@@ -626,6 +695,23 @@ h2 {
   }
 }
 
+@keyframes status-flash-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  28% {
+    opacity: 0.92;
+    transform: scale(1.02);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
 @keyframes status-glow-green {
   from {
     background: rgba(13, 20, 31, 0.96);
@@ -658,6 +744,7 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .status-change,
+  .status-flash.status-change,
   .live-chart.status-change .chart-candle.latest {
     animation: none;
   }

@@ -4,6 +4,9 @@ const vm = require("vm");
 
 const code = fs.readFileSync("docs/indicator-engine.js", "utf8");
 const pineCode = fs.readFileSync("indicator/ChamilleiaSupplyDemand.pine", "utf8");
+const statusCode = fs.readFileSync("docs/status.js", "utf8");
+const styleCode = fs.readFileSync("docs/style.css", "utf8");
+const htmlCode = fs.readFileSync("docs/index.html", "utf8");
 const context = { window: {} };
 vm.createContext(context);
 vm.runInContext(code, context);
@@ -124,9 +127,21 @@ function testPineIndicatorIsPriceActionOnly() {
   assert(/array\.size\(zones\) > 1/.test(pineCode), "Pine indicator should keep only the newest zone");
 }
 
+function testWebsiteHasDramaticStatusFlash() {
+  assert(htmlCode.includes('id="status-flash"'), "website should include a full-page status flash layer");
+  assert(statusCode.includes("statusFlash.className"), "status script should color the flash layer by current status");
+  assert(statusCode.includes("document.body.classList.add(`status-${result.className}`)"), "status script should theme the full dashboard by status");
+  assert(/@keyframes\s+status-flash-burst/.test(styleCode), "CSS should define the dramatic status flash animation");
+  for (const className of ["buy", "sell", "wait", "no-trade", "caution"]) {
+    assert(styleCode.includes(`.status-flash.${className}`), `CSS should color flash state ${className}`);
+    assert(styleCode.includes(`status-${className}`), `CSS should theme body state ${className}`);
+  }
+}
+
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
 testPineIndicatorIsPriceActionOnly();
+testWebsiteHasDramaticStatusFlash();
 
 console.log("indicator-engine tests passed");

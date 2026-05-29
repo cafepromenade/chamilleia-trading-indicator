@@ -2,6 +2,7 @@
   const heroStatus = document.querySelector("#hero-status");
   const heroNote = document.querySelector("#hero-status-note");
   const liveStatusBar = document.querySelector("#live-status-bar");
+  const statusFlash = document.querySelector("#status-flash");
   const engineOutput = document.querySelector("#engine-output");
   const engineFacts = document.querySelector("#engine-facts");
   const chartStatus = document.querySelector("#chart-status");
@@ -104,6 +105,7 @@
       liveStatusBar,
       engineOutput,
       chartStatus,
+      statusFlash,
       heroStatus?.parentElement,
       liveChart,
     ].filter(Boolean);
@@ -120,6 +122,8 @@
   }
 
   function setEngineOutput(result) {
+    document.body.classList.remove("status-buy", "status-sell", "status-wait", "status-no-trade", "status-caution");
+    document.body.classList.add(`status-${result.className}`);
     engineOutput.className = `status-output ${result.className}`;
     engineOutput.querySelector(".status-title").textContent = result.label;
     engineOutput.querySelector(".status-reason").textContent = result.note;
@@ -133,6 +137,9 @@
     liveStatusBar.className = `live-status-bar ${result.className}`;
     liveStatusBar.querySelector(".bar-status").textContent = result.label;
     liveStatusBar.querySelector(".bar-note").textContent = result.note;
+    if (statusFlash) {
+      statusFlash.className = `status-flash ${result.className}`;
+    }
     animateStatusChange(result);
   }
 
