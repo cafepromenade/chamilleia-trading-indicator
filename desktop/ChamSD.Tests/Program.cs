@@ -27,6 +27,8 @@ tests.DesktopChartShowsRiskLevels();
 tests.DesktopWindowIsFixedSize();
 tests.DesktopUsesFullFixedWindowWidth();
 tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
+tests.DesktopRunsOpenCodePredictionsAutomaticallyByDefault();
+tests.DesktopHasWindowsStatusNotifications();
 tests.DesktopUsesLiveMultiTimeframeDataOnly();
 tests.DesktopUsesTwentyFourHourTimeOnly();
 tests.DesktopLiveDataParserSkipsMalformedBars();
@@ -517,6 +519,35 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         {
             Assert(!pageXaml.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"desktop UI should not show {forbidden} wording");
         }
+    }
+
+    public void DesktopRunsOpenCodePredictionsAutomaticallyByDefault()
+    {
+        var pageXaml = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml");
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+
+        Assert(pageXaml.Contains("x:Name=\"AutoThinkCheckBox\"", StringComparison.Ordinal), "desktop UI should expose automatic OpenCode prediction control");
+        Assert(pageXaml.Contains("AutomationProperties.AutomationId=\"AutoThinkCheckBox\"", StringComparison.Ordinal), "auto prediction control should be automation-testable");
+        Assert(pageXaml.Contains("IsChecked=\"True\">", StringComparison.Ordinal), "automatic OpenCode prediction should be on by default");
+        Assert(pageCode.Contains("var shouldAutoThink = AutoThinkCheckBox.IsChecked == true", StringComparison.Ordinal), "desktop should decide automatic prediction from the auto-think checkbox");
+        Assert(pageCode.Contains("string.IsNullOrWhiteSpace(previousStatus) || statusChanged", StringComparison.Ordinal), "desktop should automatically predict on first live load and status changes");
+        Assert(pageCode.Contains("await RunThinkingAsync()", StringComparison.Ordinal), "desktop should run OpenCode thinking automatically when enabled");
+    }
+
+    public void DesktopHasWindowsStatusNotifications()
+    {
+        var pageXaml = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml");
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+        var notificationCode = ReadRepoFile("desktop/ChamSD.Desktop/WindowsNotificationService.cs");
+
+        Assert(pageXaml.Contains("x:Name=\"WindowsNotificationsCheckBox\"", StringComparison.Ordinal), "desktop should expose a Windows notification toggle");
+        Assert(pageXaml.Contains("AutomationProperties.AutomationId=\"WindowsNotificationsCheckBox\"", StringComparison.Ordinal), "notification toggle should be automation-testable");
+        Assert(pageXaml.Contains("Click=\"TestNotificationButton_Click\"", StringComparison.Ordinal), "desktop should include a test notification button");
+        Assert(pageCode.Contains("SendWindowsStatusNotification()", StringComparison.Ordinal), "desktop should send Windows notifications from status-change flow");
+        Assert(pageCode.Contains("WindowsNotificationsCheckBox.IsChecked != true", StringComparison.Ordinal), "desktop should respect the notification toggle");
+        Assert(notificationCode.Contains("ToastNotificationManager.CreateToastNotifier().Show(notification)", StringComparison.Ordinal), "notification service should use Windows toast notifications");
+        Assert(notificationCode.Contains("SecurityElement.Escape", StringComparison.Ordinal), "notification XML should escape live status text safely");
+        Assert(notificationCode.Contains("ExpirationTime = DateTimeOffset.Now.AddMinutes(5)", StringComparison.Ordinal), "status notifications should expire instead of lingering forever");
     }
 
     public void DesktopUsesLiveMultiTimeframeDataOnly()
