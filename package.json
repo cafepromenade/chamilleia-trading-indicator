@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "test": "node tests/indicator-engine.test.js"
+  }
+}
