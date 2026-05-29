@@ -714,20 +714,27 @@ Risk note: {decision.Risk.Text}
 Entry mode: {decision.Risk.EntryMode}
 Session: {decision.SessionText}
 Daily: {decision.D1Bias.Direction} - {decision.D1Bias.Reason}
+4H: {decision.H4Bias.Direction} - {decision.H4Bias.Reason}
+1H: {decision.H1Bias.Direction} - {decision.H1Bias.Reason}
 30M: {decision.M30Bias.Direction} - {decision.M30Bias.Reason}
 15M: {decision.M15Bias.Direction} - {decision.M15Bias.Reason}
 
 Strategy rules:
-- 4H overrides 1H. HTF body-close breakout creates the indication level.
-- 5M/15M waits for correction, newest supply/demand zone tap, then break-of-candle continuation.
+- ICC order is Indication, Correction, Continuation. A Primary Indication Level is not an instant trade.
+- 4H overrides 1H. HTF body-close breakout creates the indication level and wicks alone do not count on HTF.
+- Execute from 5M. Use 15M/30M confirmation as gates. Avoid treating 1M noise as a setup.
+- Prefer London and New York 09:30 ET volume. Outside those windows, wait unless status already says otherwise.
+- 5M waits for correction, newest supply/demand zone tap, then break-of-candle continuation across the Primary Indication Level.
 - 5M BOS can be a wick or a full candle body; HTF indication still uses body close.
 - Demand is the last red candle before an aggressive push up. Supply is the last green candle before an aggressive push down.
 - Only the newest zone from the latest structure break is valid; older zones are ignored.
-- If a candle body closes through the zone, the zone is invalid and the bot waits for minor structure reset.
-- If market is ranging, use support/resistance only and keep targets strict.
-- Stop goes outside the tapped zone; if that is over 50 points, use the entering candle stop or skip. TP1 is 1:1, then scale 75-90% and let the runner target the next major historical swing before 1:2.
+- A+ means wick-only tap into the zone with no candle body entering the zone.
+- If a candle body closes through the zone, the zone is invalid and the bot waits for mBOS reset: second higher low for buys or second lower high for sells, then minor structure break.
+- If continuation fails through the stop or pullback extreme, use shift of gears: reset toward the opposing indication, not an instant opposite trade.
+- If market is ranging, use support/resistance only and keep targets strict 1:1 with no runner.
+- Stop goes outside the tapped zone; if that is over 50 points, use the entering candle stop or skip. TP1 is 1:1, then scale 75-90% and move stop to break-even. Runner targets the next major historical swing before 1:2.
 - Abort trend scanning during random consolidation or when price has no clear structural target near the available daily-history edge.
-- Counter-trend ideas need a strong body-close break and strict 1:1 target.
+- Counter-trend ideas need a strong full-body break, support/resistance confluence if present, and strict 1:1 target.
 
 Checklist:
 {checklist}

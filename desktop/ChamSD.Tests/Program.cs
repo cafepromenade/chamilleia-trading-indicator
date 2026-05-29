@@ -15,6 +15,7 @@ tests.LowerTimeframeOppositionBlocksEntry();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
 tests.OpenCodeRejectsUnguiifiedOutputAndKeepsTrying();
+tests.OpenCodePromptCarriesBothDocumentMethods();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
 tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
@@ -344,6 +345,32 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(attemptedModels.Count == 2, "OpenCode should reject unguiified text and try the next free model");
         Assert(output.Contains("MODEL: mimo-v2.5-free", StringComparison.Ordinal), "successful formatted output should name the next working free model");
         Assert(output.Contains("FINAL BOT READ: STATUS: WAIT FOR BUY", StringComparison.Ordinal), "formatted final bot read should be preserved");
+    }
+
+    public void OpenCodePromptCarriesBothDocumentMethods()
+    {
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+
+        foreach (var required in new[]
+        {
+            "ICC order is Indication, Correction, Continuation",
+            "Primary Indication Level is not an instant trade",
+            "4H overrides 1H",
+            "Use 15M/30M confirmation as gates",
+            "London and New York 09:30 ET",
+            "A+ means wick-only tap",
+            "mBOS reset: second higher low for buys or second lower high for sells",
+            "shift of gears",
+            "strict 1:1 with no runner",
+            "scale 75-90% and move stop to break-even",
+            "strong full-body break",
+        })
+        {
+            Assert(pageCode.Contains(required, StringComparison.Ordinal), $"OpenCode prompt should include document rule: {required}");
+        }
+
+        Assert(pageCode.Contains("4H: {decision.H4Bias.Direction}", StringComparison.Ordinal), "OpenCode prompt should include raw 4H bias");
+        Assert(pageCode.Contains("1H: {decision.H1Bias.Direction}", StringComparison.Ordinal), "OpenCode prompt should include raw 1H bias");
     }
 
     public void PredictionParserKeepsGuiCardsFilled()
