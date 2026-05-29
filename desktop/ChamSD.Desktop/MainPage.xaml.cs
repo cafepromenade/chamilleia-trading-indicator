@@ -210,10 +210,10 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void SetPredictionMessage(string state, string thinking, string prediction, string invalidation, string finalRead, string className)
+    private void SetPredictionMessage(string state, string thinking, string prediction, string invalidation, string finalRead, string className, string? model = null)
     {
         PredictionStateText.Text = state;
-        PredictionModelText.Text = PredictionModelLabel;
+        PredictionModelText.Text = string.IsNullOrWhiteSpace(model) ? PredictionModelLabel : model;
         PredictionThinkingText.Text = thinking;
         PredictionMoveText.Text = prediction;
         PredictionInvalidationText.Text = invalidation;
@@ -230,7 +230,8 @@ public sealed partial class MainPage : Page
             sections.Prediction,
             sections.Invalidation,
             sections.FinalRead,
-            className);
+            className,
+            sections.Model);
     }
 
     private void AnimateStatusChange(string className)

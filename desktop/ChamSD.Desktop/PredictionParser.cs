@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace ChamSD_Desktop;
 
-public sealed record PredictionSections(string Thinking, string Prediction, string Invalidation, string FinalRead);
+public sealed record PredictionSections(string Model, string Thinking, string Prediction, string Invalidation, string FinalRead);
 
 public static class PredictionParser
 {
@@ -17,6 +17,7 @@ public static class PredictionParser
             ["FINAL BOT READ"] = new(),
         };
         var normalized = output.Replace("\r", string.Empty).Replace("**", string.Empty);
+        var model = ExtractModel(normalized);
         var matches = Regex.Matches(normalized, "(THINKING|PREDICTION|INVALIDATION|FINAL\\s+BOT\\s+READ)\\s*:", RegexOptions.IgnoreCase);
         for (var index = 0; index < matches.Count; index++)
         {
@@ -75,10 +76,17 @@ public static class PredictionParser
         }
 
         return new PredictionSections(
+            string.IsNullOrWhiteSpace(model) ? OpenCodeThinkingService.DisplayModelLabel : model,
             string.IsNullOrWhiteSpace(thinking) ? "OpenCode did not return a thinking section." : thinking,
             string.IsNullOrWhiteSpace(prediction) ? "OpenCode did not return a prediction section." : prediction,
             string.IsNullOrWhiteSpace(invalidation) ? "OpenCode did not return an invalidation section." : invalidation,
             string.IsNullOrWhiteSpace(finalRead) ? fallbackFinalRead : finalRead);
+    }
+
+    private static string ExtractModel(string normalized)
+    {
+        var match = Regex.Match(normalized, "^\\s*MODEL\\s*:\\s*(.+?)\\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        return match.Success ? Clean(match.Groups[1].Value) : string.Empty;
     }
 
     public static string Clean(string text)

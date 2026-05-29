@@ -60,6 +60,7 @@ public sealed class OpenCodeThinkingService
 
         var failureText = string.Join(" ", failures);
         return $"""
+MODEL: free model ladder failed
 THINKING: OpenCode tried the free model ladder, but none returned a clean answer. {failureText}
 PREDICTION: Keep the current bot status until a free OpenCode model answers.
 INVALIDATION: No extra AI invalidation was produced; use the built-in strategy engine invalidation rules.

@@ -17,6 +17,7 @@ tests.OpenCodeTestsFreeModelsUntilOneWorks();
 tests.OpenCodeRejectsUnguiifiedOutputAndKeepsTrying();
 tests.OpenCodePromptCarriesBothDocumentMethods();
 tests.OpenCodePassesLongPromptByFile();
+tests.OpenCodeWorkingModelIsShownInPredictionHeader();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
 tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
@@ -385,6 +386,36 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(!thinkingCode.Contains("startInfo.ArgumentList.Add(prompt)", StringComparison.Ordinal), "OpenCode should not pass the full prompt directly on the command line");
     }
 
+    public void OpenCodeWorkingModelIsShownInPredictionHeader()
+    {
+        var sections = PredictionParser.Parse("""
+MODEL: mimo-v2.5-free
+THINKING: The working model read the live structure.
+PREDICTION: Wait for confirmation.
+INVALIDATION: Body close through the zone invalidates.
+FINAL BOT READ: STATUS: WAIT FOR BUY
+""", "STATUS: WAIT");
+        var fallback = PredictionParser.Parse("""
+THINKING: No model line came back.
+PREDICTION: Keep waiting.
+INVALIDATION: Use the engine invalidation.
+FINAL BOT READ: STATUS: WAIT
+""", "STATUS: WAIT");
+        var failed = PredictionParser.Parse("""
+MODEL: free model ladder failed
+THINKING: OpenCode tried every free model.
+PREDICTION: Keep engine status.
+INVALIDATION: Use engine rules.
+FINAL BOT READ: STATUS: WAIT
+""", "STATUS: WAIT");
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+
+        Assert(sections.Model == "mimo-v2.5-free", "prediction parser should preserve the working free model name");
+        Assert(fallback.Model == OpenCodeThinkingService.DisplayModelLabel, "missing model should fall back to the free-model auto label");
+        Assert(failed.Model == "free model ladder failed", "fallback output should surface that all free models failed");
+        Assert(pageCode.Contains("sections.Model", StringComparison.Ordinal), "desktop prediction header should display the parsed working model");
+    }
+
     public void PredictionParserKeepsGuiCardsFilled()
     {
         var sections = PredictionParser.Parse("""
@@ -395,6 +426,7 @@ INVALIDATION: Body-close below the demand zone cancels it.
 FINAL BOT READ: STATUS: WAIT FOR BUY
 """, "STATUS: WAIT");
 
+        Assert(sections.Model == "deepseek-v4-flash-free", "model header should receive the working model name");
         Assert(sections.Thinking.Contains("correction", StringComparison.OrdinalIgnoreCase), "thinking card should receive thinking text");
         Assert(sections.Prediction.Contains("Wait for buy", StringComparison.OrdinalIgnoreCase), "next-move card should receive prediction text");
         Assert(sections.Invalidation.Contains("Body-close", StringComparison.OrdinalIgnoreCase), "invalidation card should receive invalidation text");
