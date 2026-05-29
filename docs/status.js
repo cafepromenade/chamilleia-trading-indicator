@@ -19,7 +19,7 @@
   const predictionNext = document.querySelector("#prediction-next");
   const predictionInvalid = document.querySelector("#prediction-invalid");
   const predictionFinal = document.querySelector("#prediction-final");
-  const installDesktop = document.querySelector("#install-desktop");
+  const installDesktopLinks = [...document.querySelectorAll("[data-install-desktop]")];
   const latestReleaseLink = document.querySelector("#latest-release-link");
   let previousStatusLabel = "";
   const githubReleaseApi = "https://api.github.com/repos/cafepromenade/chamilleia-trading-indicator/releases/latest";
@@ -63,7 +63,7 @@
   }
 
   async function loadLatestDesktopRelease() {
-    if (!installDesktop && !latestReleaseLink) {
+    if (installDesktopLinks.length === 0 && !latestReleaseLink) {
       return;
     }
 
@@ -80,13 +80,13 @@
       const portableAsset = release.assets?.find((asset) => asset.name === "ChamSD.Desktop.Portable.zip");
       const releaseUrl = release.html_url || "https://github.com/cafepromenade/chamilleia-trading-indicator/releases/latest";
 
-      if (installDesktop) {
+      installDesktopLinks.forEach((installDesktop) => {
         installDesktop.href = setupAsset?.browser_download_url || releaseUrl;
         installDesktop.textContent = setupAsset ? "Install Desktop App" : "Open Desktop Release";
         installDesktop.title = release.tag_name
           ? `Latest GitHub Actions release: ${release.tag_name}`
           : "Latest GitHub Actions release";
-      }
+      });
 
       if (latestReleaseLink) {
         latestReleaseLink.href = releaseUrl;

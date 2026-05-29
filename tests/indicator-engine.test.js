@@ -156,6 +156,18 @@ function testWebsiteUsesLiveMultiTimeframeDataOnly() {
   assert(!/const\s+(sample|demo|mock|fake)Candles/i.test(statusCode), "website must not define static candle data");
 }
 
+function testWebsiteLinksLatestDesktopInstaller() {
+  assert(htmlCode.includes('id="status-install-desktop"'), "sticky status bar should include a desktop install link");
+  assert(htmlCode.includes("data-install-desktop"), "desktop install links should share the latest-release hook");
+  assert(
+    htmlCode.includes("releases/latest/download/ChamSD.Desktop.Setup.exe"),
+    "desktop install link should default to the latest GitHub Actions installer asset",
+  );
+  assert(statusCode.includes("https://api.github.com/repos/cafepromenade/chamilleia-trading-indicator/releases/latest"), "website should look up the newest GitHub release");
+  assert(statusCode.includes("installDesktopLinks.forEach"), "all desktop install links should update from the latest release response");
+  assert(statusCode.includes("ChamSD.Desktop.Setup.exe"), "latest release lookup should target the NSIS installer asset");
+}
+
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
@@ -163,5 +175,6 @@ testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();
 testWebsiteUsesLiveMultiTimeframeDataOnly();
+testWebsiteLinksLatestDesktopInstaller();
 
 console.log("indicator-engine tests passed");

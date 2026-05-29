@@ -92,7 +92,7 @@ body {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   gap: 0.8rem;
   align-items: center;
   padding: 0.65rem 1.5rem;
@@ -118,6 +118,31 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.status-install-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(138, 180, 255, 0.62);
+  border-radius: 8px;
+  background: rgba(138, 180, 255, 0.13);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 0 20px rgba(138, 180, 255, 0.16);
+}
+
+.status-install-link:hover,
+.status-install-link:focus-visible {
+  border-color: var(--teal);
+  background: rgba(45, 212, 191, 0.18);
+  color: var(--ink);
 }
 
 .status-change {
@@ -1395,6 +1420,14 @@ footer .muted {
     display: none;
   }
 
+  .status-install-link {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-height: 38px;
+    padding: 0 0.7rem;
+    font-size: 0.76rem;
+  }
+
   nav ul {
     justify-content: flex-start;
   }
@@ -1430,6 +1463,26 @@ footer .muted {
   .prediction-grid,
   .risk-plan {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-only .market-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(94px, 0.72fr);
+  }
+
+  .dashboard-only .market-select {
+    grid-column: 1 / 2;
+    grid-row: 1;
+  }
+
+  .dashboard-only .refresh-btn {
+    grid-column: 2 / 3;
+    grid-row: 1;
+  }
+
+  .dashboard-only .install-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .engine-facts {
