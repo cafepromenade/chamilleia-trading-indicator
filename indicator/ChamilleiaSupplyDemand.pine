@@ -40,6 +40,7 @@ supplyCol   = input.color(color.new(color.red, 80),  "Supply zone fill", group=g
 borderDem   = input.color(color.teal, "Demand border", group=grpStyle)
 borderSup   = input.color(color.red,  "Supply border", group=grpStyle)
 showLabels  = input.bool(true, "Show BOS / tap labels", group=grpStyle)
+showStatus  = input.bool(true, "Show automatic Status label", group=grpStyle)
 
 // ─────────────────────────── Trend ───────────────────────────
 ema      = ta.ema(close, trendLen)
@@ -184,6 +185,18 @@ secondHigherLow  = not na(hl1) and not na(hl2) and hl1 > hl2   // bullish mBOS c
 
 plotshape(secondLowerHigh,  title="2nd Lower High (mBOS sell confirm)",  style=shape.xcross, location=location.abovebar, color=color.maroon, size=size.tiny)
 plotshape(secondHigherLow,  title="2nd Higher Low (mBOS buy confirm)",   style=shape.cross,  location=location.belowbar, color=color.green,  size=size.tiny)
+
+// Status table: plain-language Buy / Sell / Wait readout for the latest bar.
+string statusText = buyTrigger ? (aPlusBuy ? "STATUS: A+ BUY" : "STATUS: BUY") : sellTrigger ? (aPlusSell ? "STATUS: A+ SELL" : "STATUS: SELL") : bull ? "STATUS: WAIT FOR BUY" : bear ? "STATUS: WAIT FOR SELL" : "STATUS: NO TRADE"
+string statusNote = buyTrigger ? "Entry trigger fired. Check stop and risk." : sellTrigger ? "Entry trigger fired. Check stop and risk." : bull ? "Trend is up. Wait for zone tap plus trigger." : bear ? "Trend is down. Wait for zone tap plus trigger." : "No clear trend. Stand aside."
+color statusBg = buyTrigger ? color.teal : sellTrigger ? color.red : (bull or bear) ? color.orange : color.gray
+
+var table statusTable = table.new(position.top_right, 1, 2, border_width=1)
+if showStatus and barstate.islast
+    table.cell(statusTable, 0, 0, statusText, text_color=color.white, bgcolor=statusBg, text_size=size.large)
+    table.cell(statusTable, 0, 1, statusNote, text_color=color.white, bgcolor=color.new(statusBg, 35), text_size=size.small)
+if not showStatus and barstate.islast
+    table.clear(statusTable, 0, 0, 0, 1)
 
 // ─────────────────────────── Alerts ───────────────────────────
 alertcondition(buyTrigger,        title="Buy Entry Triggered",  message="CHAM S&D: BUY entry on {{ticker}} {{interval}}")
