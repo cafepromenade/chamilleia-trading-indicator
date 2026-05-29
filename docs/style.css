@@ -762,7 +762,11 @@ h2 {
   font-weight: 800;
 }
 
-.refresh-btn {
+.refresh-btn,
+.install-btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
   min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -771,6 +775,10 @@ h2 {
   font: inherit;
   font-size: 0.88rem;
   font-weight: 800;
+  line-height: 1.15;
+  padding: 0 0.75rem;
+  text-align: center;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -783,6 +791,20 @@ h2 {
   border-color: var(--teal);
   background: rgba(45, 212, 191, 0.14);
   color: var(--ink);
+}
+
+.install-btn {
+  grid-column: 1 / -1;
+  border-color: rgba(138, 180, 255, 0.68);
+  background: rgba(138, 180, 255, 0.12);
+  color: var(--ink);
+  box-shadow: 0 0 20px rgba(138, 180, 255, 0.14);
+}
+
+.install-btn:hover,
+.install-btn:focus-visible {
+  border-color: var(--blue);
+  background: rgba(138, 180, 255, 0.2);
 }
 
 .engine-facts {
