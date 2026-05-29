@@ -147,6 +147,7 @@ public sealed partial class MainPage : Page
         RiskStopText.Text = FormatNullablePrice(decision.Risk.Stop);
         RiskTp1Text.Text = FormatNullablePrice(decision.Risk.TargetOne);
         RiskTp2Text.Text = FormatNullablePrice(decision.Risk.TargetTwo);
+        RiskStructureText.Text = FormatNullablePrice(decision.Risk.StructureTarget);
         RiskNoteText.Text = decision.Risk.Text;
         ChecklistItems.ItemsSource = decision.Checklist;
         LastUpdatedText.Text = $"Live update: {DateTimeOffset.Now:MMM d, HH:mm:ss}";
@@ -672,6 +673,7 @@ Risk entry: {decision.Risk.Entry?.ToString() ?? "-"}
 Risk stop: {decision.Risk.Stop?.ToString() ?? "-"}
 Risk TP1: {decision.Risk.TargetOne?.ToString() ?? "-"}
 Risk TP2: {decision.Risk.TargetTwo?.ToString() ?? "-"}
+Risk structure target: {decision.Risk.StructureTarget?.ToString() ?? "-"}
 Risk note: {decision.Risk.Text}
 Entry mode: {decision.Risk.EntryMode}
 Session: {decision.SessionText}
@@ -687,7 +689,7 @@ Strategy rules:
 - Only the newest zone from the latest structure break is valid; older zones are ignored.
 - If a candle body closes through the zone, the zone is invalid and the bot waits for minor structure reset.
 - If market is ranging, use support/resistance only and keep targets strict.
-- Stop goes outside the tapped zone. TP1 is 1:1 and TP2 is 1:2.
+- Stop goes outside the tapped zone. TP1 is 1:1, then scale 75-90% and let the runner target the next major historical swing before 1:2.
 - Abort trend scanning during random consolidation or when price has no clear structural target near the available daily-history edge.
 - Counter-trend ideas need a strong body-close break and strict 1:1 target.
 

@@ -224,6 +224,7 @@
       renderFact("Stop", risk.stop === null ? "-" : formatPrice(risk.stop)),
       renderFact("TP1", risk.targetOne === null ? "-" : formatPrice(risk.targetOne)),
       renderFact("TP2", risk.targetTwo === null ? "-" : formatPrice(risk.targetTwo)),
+      renderFact("Structure", risk.structureTarget === null ? "-" : formatPrice(risk.structureTarget)),
     ].join("");
     riskNote.textContent = risk.text;
   }
@@ -441,6 +442,7 @@
         stop: null,
         targetOne: null,
         targetTwo: null,
+        structureTarget: null,
         text: "Live data is unavailable, so no automated strategy can be calculated.",
       });
     } finally {

@@ -231,6 +231,7 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock FontWeight="SemiBold" Text="Entry" />
                                         <TextBlock x:Name="RiskEntryText" Grid.Column="1" Text="-" />
@@ -240,10 +241,12 @@
                                         <TextBlock x:Name="RiskTp1Text" Grid.Row="2" Grid.Column="1" Text="-" />
                                         <TextBlock Grid.Row="3" FontWeight="SemiBold" Text="TP2" />
                                         <TextBlock x:Name="RiskTp2Text" Grid.Row="3" Grid.Column="1" Text="-" />
-                                        <TextBlock Grid.Row="4" FontWeight="SemiBold" Text="Note" />
+                                        <TextBlock Grid.Row="4" FontWeight="SemiBold" Text="Structure" />
+                                        <TextBlock x:Name="RiskStructureText" Grid.Row="4" Grid.Column="1" Text="-" />
+                                        <TextBlock Grid.Row="5" FontWeight="SemiBold" Text="Note" />
                                         <TextBlock
                                             x:Name="RiskNoteText"
-                                            Grid.Row="4"
+                                            Grid.Row="5"
                                             Grid.Column="1"
                                             Text="-"
                                             TextWrapping="Wrap" />

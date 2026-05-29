@@ -61,6 +61,7 @@ public sealed class WebhookService
                     stop = decision.Risk.Stop,
                     targetOne = decision.Risk.TargetOne,
                     targetTwo = decision.Risk.TargetTwo,
+                    structureTarget = decision.Risk.StructureTarget,
                 },
                 values,
                 sentAt = DateTimeOffset.UtcNow,

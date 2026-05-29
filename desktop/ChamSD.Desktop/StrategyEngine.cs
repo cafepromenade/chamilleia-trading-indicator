@@ -144,7 +144,10 @@ public sealed class StrategyEngine
                 ? h4Bias.IndicationLevel ?? h1Bias.IndicationLevel
                 : null;
 
-        var riskPlan = CalculateRiskPlan(latest, bias.Direction);
+        var structureTarget = FindStructureTarget(d1Candles, latest.Close, bias.Direction)
+            ?? FindStructureTarget(h4Candles, latest.Close, bias.Direction)
+            ?? FindStructureTarget(h1Candles, latest.Close, bias.Direction);
+        var riskPlan = CalculateRiskPlan(latest, bias.Direction, structureTarget);
 
         return new StrategyDecision
         {
@@ -469,7 +472,7 @@ public sealed class StrategyEngine
         };
     }
 
-    private static RiskPlan CalculateRiskPlan(ChamilleiaLatest latest, string direction)
+    private static RiskPlan CalculateRiskPlan(ChamilleiaLatest latest, string direction, double? structureTarget)
     {
         var tapMatchesDirection = latest.LastTap is not null && (
             direction == "bullish" && latest.LastTap.IsDemand ||
@@ -480,6 +483,7 @@ public sealed class StrategyEngine
             return new RiskPlan
             {
                 EntryMode = "WAIT",
+                StructureTarget = Round(structureTarget),
                 Text = "No live entry plan until price taps a valid zone and gives a trigger. If market stays sideways, use support/resistance only with strict 1:1.",
             };
         }
@@ -494,6 +498,7 @@ public sealed class StrategyEngine
             {
                 Entry = Round(entry),
                 Stop = Round(stop),
+                StructureTarget = Round(structureTarget),
                 EntryMode = "ZONE TAPPED",
                 Text = "Risk cannot be calculated from the current live zone.",
             };
@@ -511,10 +516,45 @@ public sealed class StrategyEngine
             Risk = Round(risk),
             TargetOne = Round(direction == "bullish" ? entry + risk : entry - risk),
             TargetTwo = Round(direction == "bullish" ? entry + risk * 2 : entry - risk * 2),
+            StructureTarget = Round(structureTarget),
             EntryMode = "BREAK OF CANDLE",
             StopWithinLimit = stopWithinLimit,
-            Text = $"Stop is outside the tapped zone. {stopText} TP1 is 1:1: secure partials and move stop to break-even; TP2 is the runner toward 1:2 or structure.",
+            Text = $"Stop is outside the tapped zone. {stopText} TP1 is 1:1: secure partials and move stop to break-even; runner targets {(structureTarget is null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2.")}",
         };
+    }
+
+    private static double? FindStructureTarget(IReadOnlyList<MarketCandle> candles, double close, string direction)
+    {
+        var pivots = FindPivots(candles, PivotLen);
+        var candidates = direction == "bullish"
+            ? pivots.Highs.Select(pivot => pivot.Value).Where(value => value > close).OrderBy(value => value)
+            : direction == "bearish"
+                ? pivots.Lows.Select(pivot => pivot.Value).Where(value => value < close).OrderByDescending(value => value)
+                : Enumerable.Empty<double>();
+        var target = candidates.FirstOrDefault(double.NaN);
+        return double.IsNaN(target) ? null : target;
+    }
+
+    private static (IReadOnlyList<Pivot> Highs, IReadOnlyList<Pivot> Lows) FindPivots(IReadOnlyList<MarketCandle> candles, int pivotLen)
+    {
+        var highs = new List<Pivot>();
+        var lows = new List<Pivot>();
+        for (var index = pivotLen; index < candles.Count; index++)
+        {
+            var high = GetPivot(candles, index, pivotLen, highMode: true);
+            var low = GetPivot(candles, index, pivotLen, highMode: false);
+            if (high is not null)
+            {
+                highs.Add(high);
+            }
+
+            if (low is not null)
+            {
+                lows.Add(low);
+            }
+        }
+
+        return (highs, lows);
     }
 
     private static string EntryModeText(ChamilleiaLatest latest, string direction, bool hasAlignedTap)

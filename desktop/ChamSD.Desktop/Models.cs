@@ -77,6 +77,7 @@ public sealed class RiskPlan
     public double? Risk { get; init; }
     public double? TargetOne { get; init; }
     public double? TargetTwo { get; init; }
+    public double? StructureTarget { get; init; }
     public string Text { get; init; } = string.Empty;
     public string EntryMode { get; init; } = "-";
     public bool StopWithinLimit { get; init; } = true;

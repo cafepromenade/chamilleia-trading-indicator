@@ -25,6 +25,22 @@
     return total / length;
   }
 
+  function findPivots(candles, pivotLen) {
+    const highs = [];
+    const lows = [];
+    for (let index = pivotLen; index < candles.length; index += 1) {
+      const high = getPivot(candles, index, pivotLen, "high", "high");
+      const low = getPivot(candles, index, pivotLen, "low", "low");
+      if (high) {
+        highs.push(high);
+      }
+      if (low) {
+        lows.push(low);
+      }
+    }
+    return { highs, lows };
+  }
+
   function getPivot(candles, index, pivotLen, field, mode) {
     const pivotIndex = index - pivotLen;
     if (pivotIndex < pivotLen) {
@@ -362,7 +378,18 @@
     };
   }
 
-  function calculateRiskPlan(latest, direction) {
+  function findStructureTarget(candles, close, direction) {
+    const pivots = findPivots(candles, DEFAULT_SETTINGS.pivotLen);
+    if (direction === "bullish") {
+      return pivots.highs.map((pivot) => pivot.value).filter((value) => value > close).sort((a, b) => a - b)[0] ?? null;
+    }
+    if (direction === "bearish") {
+      return pivots.lows.map((pivot) => pivot.value).filter((value) => value < close).sort((a, b) => b - a)[0] ?? null;
+    }
+    return null;
+  }
+
+  function calculateRiskPlan(latest, direction, structureTarget) {
     const tapMatchesDirection = latest.lastTap && (
       (direction === "bullish" && latest.lastTap.isDemand) ||
       (direction === "bearish" && !latest.lastTap.isDemand)
@@ -375,6 +402,7 @@
         risk: null,
         targetOne: null,
         targetTwo: null,
+        structureTarget: round(structureTarget),
         entryMode: "WAIT",
         stopWithinLimit: true,
         text: "No live entry plan until price taps a valid zone and gives a trigger. If market stays sideways, use support/resistance only with strict 1:1.",
@@ -392,6 +420,7 @@
         risk: null,
         targetOne: null,
         targetTwo: null,
+        structureTarget: round(structureTarget),
         entryMode: "ZONE TAPPED",
         stopWithinLimit: true,
         text: "Risk cannot be calculated from the current live zone.",
@@ -410,9 +439,10 @@
       risk: round(risk),
       targetOne: round(targetOne),
       targetTwo: round(targetTwo),
+      structureTarget: round(structureTarget),
       entryMode: "BREAK OF CANDLE",
       stopWithinLimit,
-      text: `Stop is outside the tapped zone. ${stopText} TP1 is 1:1: secure partials and move stop to break-even; TP2 is the runner toward 1:2 or structure.`,
+      text: `Stop is outside the tapped zone. ${stopText} TP1 is 1:1: secure partials and move stop to break-even; runner targets ${structureTarget === null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2."}`,
     };
   }
 
@@ -596,7 +626,10 @@
     if (newestZoneInvalidated) confidence = Math.min(confidence, 35);
     if (conflict) confidence = Math.min(confidence, 25);
     confidence = Math.max(0, Math.min(100, confidence));
-    const risk = calculateRiskPlan(latest, bias.direction);
+    const structureTarget = findStructureTarget(d1Candles, latest.close, bias.direction)
+      ?? findStructureTarget(h4Candles, latest.close, bias.direction)
+      ?? findStructureTarget(h1Candles, latest.close, bias.direction);
+    const risk = calculateRiskPlan(latest, bias.direction, structureTarget);
     const indicationLevel = bias.direction === "bullish"
       ? h4Bias.indicationLevel ?? h1Bias.indicationLevel
       : bias.direction === "bearish"
