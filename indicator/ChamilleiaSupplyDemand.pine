@@ -4,7 +4,7 @@
 // Chamilleia Supply & Demand — High-Probability Setup Highlighter
 // -----------------------------------------------------------------
 // Implements the core 4-step Supply & Demand rules:
-//   1. Trend detection (bullish / bearish)
+//   1. Market-structure direction (bullish / bearish)
 //   2. Break of Structure (BOS) confirmation (body OR wick valid)
 //   3. Most-recent demand/supply zone (recency rule, drawn wick-to-wick)
 //   4. Zone tap alerts + entry guidance
@@ -23,12 +23,9 @@ indicator("Chamilleia Supply & Demand", shorttitle="CHAM S&D", overlay=true, max
 // ─────────────────────────── Inputs ───────────────────────────
 grpStruct   = "Structure"
 pivotLen    = input.int(5,  "Pivot lookback (structure swing strength)", minval=1, group=grpStruct)
-trendLen    = input.int(50, "Trend EMA length", minval=2, group=grpStruct)
-useEmaTrend = input.bool(true, "Use EMA slope to confirm trend", group=grpStruct)
 
 grpZone     = "Zones"
 impulseMult = input.float(1.5, "Impulse strength (x avg range) to validate a push", minval=0.5, step=0.1, group=grpZone)
-maxZones    = input.int(6,  "Max zones to keep on chart", minval=1, maxval=20, group=grpZone)
 extendBars  = input.int(60, "Zone extension (bars to the right)", minval=5, group=grpZone)
 
 grpRisk     = "Risk"
@@ -42,12 +39,11 @@ borderSup   = input.color(color.red,  "Supply border", group=grpStyle)
 showLabels  = input.bool(true, "Show BOS / tap labels", group=grpStyle)
 showStatus  = input.bool(true, "Show automatic Status label", group=grpStyle)
 
-// ─────────────────────────── Trend ───────────────────────────
-ema      = ta.ema(close, trendLen)
-emaUp    = ema > ema[1]
-emaDown  = ema < ema[1]
-bull     = useEmaTrend ? emaUp   : close > ema
-bear     = useEmaTrend ? emaDown : close < ema
+// ─────────────────────── Market structure direction ───────────────────────
+// Market direction is price action only. No EMA or indicator filter is used.
+var string structureDir = "neutral"
+bool bull = false
+bool bear = false
 
 // ─────────────────────── Swing structure ───────────────────────
 ph = ta.pivothigh(high, pivotLen, pivotLen)
@@ -64,6 +60,12 @@ if not na(pl)
 // or close/low beyond the most recent swing low (sells). Wick OR body valid.
 bosUp   = not na(lastSwingHigh) and high > lastSwingHigh and high[1] <= lastSwingHigh
 bosDown = not na(lastSwingLow)  and low  < lastSwingLow  and low[1]  >= lastSwingLow
+if bosUp
+    structureDir := "bullish"
+if bosDown
+    structureDir := "bearish"
+bull := structureDir == "bullish"
+bear := structureDir == "bearish"
 
 // ─────────────────────── Impulse / push ───────────────────────
 rng     = high - low
@@ -108,8 +110,8 @@ f_addZone(bool isDemand) =>
         box bx = box.new(bar_index, t, bar_index + extendBars, b, border_color=isDemand ? borderDem : borderSup, bgcolor=isDemand ? demandCol : supplyCol, border_width=1)
         Zone z = Zone.new(bx, t, b, isDemand, false, false)
         array.unshift(zones, z)
-        // Recency rule: keep only the newest N zones.
-        while array.size(zones) > maxZones
+        // Recency rule: keep only the newest zone from the latest structure break.
+        while array.size(zones) > 1
             Zone old = array.pop(zones)
             box.delete(old.bx)
 
@@ -188,7 +190,7 @@ plotshape(secondHigherLow,  title="2nd Higher Low (mBOS buy confirm)",   style=s
 
 // Status table: plain-language Buy / Sell / Wait readout for the latest bar.
 string statusText = buyTrigger ? (aPlusBuy ? "STATUS: A+ BUY" : "STATUS: BUY") : sellTrigger ? (aPlusSell ? "STATUS: A+ SELL" : "STATUS: SELL") : bull ? "STATUS: WAIT FOR BUY" : bear ? "STATUS: WAIT FOR SELL" : "STATUS: NO TRADE"
-string statusNote = buyTrigger ? "Entry trigger fired. Check stop and risk." : sellTrigger ? "Entry trigger fired. Check stop and risk." : bull ? "Trend is up. Wait for zone tap plus trigger." : bear ? "Trend is down. Wait for zone tap plus trigger." : "No clear trend. Stand aside."
+string statusNote = buyTrigger ? "Entry trigger fired. Check stop and risk." : sellTrigger ? "Entry trigger fired. Check stop and risk." : bull ? "Structure is bullish. Wait for zone tap plus trigger." : bear ? "Structure is bearish. Wait for zone tap plus trigger." : "No clear structure. Stand aside."
 color statusBg = buyTrigger ? color.teal : sellTrigger ? color.red : (bull or bear) ? color.orange : color.gray
 
 var table statusTable = table.new(position.top_right, 1, 2, border_width=1)

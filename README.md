@@ -1,68 +1,70 @@
-# Chamilleia Supply & Demand Indicator
+# Chamilleia Trading Indicator
 
-A TradingView (Pine Script v5) indicator that highlights **high-probability
-supply & demand trade setups** — built directly from Chamilleia's trading plan.
+Live price-action dashboard, TradingView scripts, and a WinUI 3 desktop app for the Chamilleia Supply/Demand plus ICC strategy.
 
-It marks demand/supply zones created off a **Break of Structure** in a trending
-market, waits for price to **tap** the zone, flags **A+ setups**, draws entry
-triggers, and confirms **minor break-of-structure reversals** via a *second lower
-high / second higher low*.
+The current system uses **price action and market structure only**. It does not use EMA or indicator-based trend filters.
 
-## What it does
-- 📈 **Trend filter** — EMA slope to keep you on the right side (buys-only / sells-only).
-- 🧱 **Break of Structure (BOS)** — detects breaks of the most recent swing high/low (body *or* wick).
-- 🟦 **Zones** — auto-draws the most recent opposite candle before an aggressive push, wick-to-wick, with the **recency rule** (keeps only the newest N).
-- 🎯 **Tap + entry signals** — `BUY` / `SELL` markers on the *break-of-candle* entry.
-- ⭐ **A+ flag** — when price only wicks into the zone (no body close inside).
-- ❌ **Invalidation** — greys out a zone when a candle body closes through it.
-- 🪜 **Minor BOS confirmation** — `✕` second lower high (sells) / `+` second higher low (buys).
-- 🔔 **Alerts** for every key event.
+## What It Does
 
-> ⚙️ Tuned for the **5-minute** execution timeframe described in the plan.
-
-## Install on TradingView
-1. Open [TradingView](https://www.tradingview.com/) → **Pine Editor** (bottom panel).
-2. Open [`indicator/ChamilleiaSupplyDemand.pine`](indicator/ChamilleiaSupplyDemand.pine), copy its contents.
-3. Paste into the Pine Editor → **Save** → **Add to chart**.
-4. Set your chart to the **5-minute** timeframe.
-5. (Optional) Right-click the indicator → **Settings** to tune pivot length, trend EMA, impulse strength, and styling.
-6. (Optional) Create alerts from the built-in `alertcondition`s.
-
-## Strategies in this repo
-1. **Chamilleia Supply & Demand** (Pine v5 indicator) — see above.
-2. **ICC — Indication · Correction · Continuation** ("Trades by Sci") — a Pine **v6
-   strategy** (backtestable + auto-alerts) that scans HTF structure, waits for a
-   liquidity grab, and executes on trend realignment via a 4-phase state machine.
-   See [`ICC_STRATEGY.md`](ICC_STRATEGY.md).
-
-## Repo layout
-| Path | Description |
-|------|-------------|
-| [`indicator/ChamilleiaSupplyDemand.pine`](indicator/ChamilleiaSupplyDemand.pine) | Chamilleia Supply & Demand — Pine v5 indicator. |
-| [`indicator/ICC_TradesBySci.pine`](indicator/ICC_TradesBySci.pine) | ICC — Pine v6 **strategy** (state machine, auto entries/exits). |
-| [`STRATEGY.md`](STRATEGY.md) | Chamilleia's full written strategy. |
-| [`ICC_STRATEGY.md`](ICC_STRATEGY.md) | The ICC rules the v6 strategy encodes. |
-| [`docs/`](docs/) | The landing site (served live via GitHub Pages). |
+- Reads live candles for XAUUSD, GBPJPY, EURUSD, and BTCUSD.
+- Builds a top-down story from Daily, 4H, 1H, 30M, and 15M.
+- Executes from the 5M chart using newest supply/demand zone logic.
+- Gates BUY/SELL through ICC continuation: price must reclaim the Primary Indication Level.
+- Keeps only the newest valid zone from the latest structure break.
+- Invalidates a zone when a candle body closes through it.
+- Requires a stair-step minor BOS reset after a failed zone: second higher low for buys, second lower high for sells.
+- Calculates entry, stop, TP1, TP2, and structural target when a live setup is valid.
+- Color-codes and animates status states: BUY, SELL, WAIT, NO TRADE, and caution states.
+- Uses OpenCode free-model fallback for desktop prediction cards.
 
 ## Website
-🌐 **Live site:** https://cafepromenade.github.io/chamilleia-trading-indicator/
 
-The static site lives in [`docs/`](docs/) and is published automatically via
-**GitHub Pages** (deploy from `main` branch, `/docs` folder) — every push that
-changes `docs/` republishes the site, no manual step. To preview locally:
+Live site: https://cafepromenade.github.io/chamilleia-trading-indicator/
+
+The website in [`docs/`](docs/) is a focused live dashboard: status label, real candlestick chart, key live facts, risk plan, automatic prediction, and a desktop installer link.
+
+Preview locally:
+
 ```bash
-cd docs && python -m http.server 8000   # then open http://localhost:8000
+cd docs
+python -m http.server 8000
 ```
 
-## Desktop releases
-Every push to a branch and every manual workflow run builds the WinUI desktop app
-on GitHub Actions, packages a per-user NSIS installer, uploads a portable zip,
-and publishes both files to a GitHub Release. The release workflow lives at
-[`/.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml)
-and the installer definition lives at
-[`/installer/ChamSD.Desktop.nsi`](installer/ChamSD.Desktop.nsi).
+## Desktop App
 
-## ⚠️ Disclaimer
-This is an educational tool that encodes a discretionary trading plan. It is
-**not financial advice**. Indicator signals are mechanical approximations of
-discretionary rules and can be wrong. Trade your own plan and manage risk.
+The WinUI 3 desktop app lives in [`desktop/ChamSD.Desktop`](desktop/ChamSD.Desktop). It mirrors the website strategy, adds Windows notifications, and supports unlimited webhooks with GET/POST, headers, and values.
+
+Every push and every manual workflow run builds:
+
+- `ChamSD.Desktop.Setup.exe`
+- `ChamSD.Desktop.Portable.zip`
+
+Latest release: https://github.com/cafepromenade/chamilleia-trading-indicator/releases/latest
+
+## TradingView Scripts
+
+| Path | Description |
+|------|-------------|
+| [`indicator/ChamilleiaSupplyDemand.pine`](indicator/ChamilleiaSupplyDemand.pine) | Price-action Supply/Demand indicator for the 5M chart. |
+| [`indicator/ICC_TradesBySci.pine`](indicator/ICC_TradesBySci.pine) | ICC Indication, Correction, Continuation strategy. |
+
+## Strategy Docs
+
+| Path | Description |
+|------|-------------|
+| [`STRATEGY.md`](STRATEGY.md) | Chamilleia Supply/Demand rules from the trading journal. |
+| [`ICC_STRATEGY.md`](ICC_STRATEGY.md) | Trades by Sci ICC rules. |
+
+## Tests
+
+Run the strategy-engine regression suite:
+
+```bash
+npm test
+```
+
+The release workflow runs these tests before packaging the desktop app, so installer builds fail if core strategy rules regress.
+
+## Disclaimer
+
+This is an educational tool that mechanically encodes discretionary trading rules. It is not financial advice, not a guarantee, and not an automated trading execution system. Always manage risk and verify decisions yourself.

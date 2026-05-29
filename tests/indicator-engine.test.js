@@ -3,6 +3,7 @@ const fs = require("fs");
 const vm = require("vm");
 
 const code = fs.readFileSync("docs/indicator-engine.js", "utf8");
+const pineCode = fs.readFileSync("indicator/ChamilleiaSupplyDemand.pine", "utf8");
 const context = { window: {} };
 vm.createContext(context);
 vm.runInContext(code, context);
@@ -113,8 +114,14 @@ function testNewestZoneOnly() {
   assert(decision.execution.zones.length <= 1, "engine must keep only the newest valid zone");
 }
 
+function testPineIndicatorIsPriceActionOnly() {
+  assert(!/ta\.ema|useEmaTrend|Trend EMA/i.test(pineCode), "Pine indicator must not use EMA trend filtering");
+  assert(/array\.size\(zones\) > 1/.test(pineCode), "Pine indicator should keep only the newest zone");
+}
+
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
+testPineIndicatorIsPriceActionOnly();
 
 console.log("indicator-engine tests passed");
