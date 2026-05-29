@@ -1,4 +1,5 @@
 using ChamSD_Desktop;
+using System.Text.Json;
 
 var tests = new DesktopStrategyTests();
 tests.PrimaryIndicationGateBlocksBuyBeforeReclaim();
@@ -31,6 +32,9 @@ tests.DesktopUsesTwentyFourHourTimeOnly();
 tests.DesktopLiveDataParserSkipsMalformedBars();
 tests.DesktopRejectsStaleLiveCandles();
 await tests.WebhookSettingsPersistUnlimitedEndpointsAsync();
+await tests.WebhookPostSendsStatusJsonHeadersAndValuesAsync();
+await tests.WebhookGetSendsStatusValuesInQueryAsync();
+await tests.DisabledWebhookDoesNotSendRequestAsync();
 tests.WebhookStatusChangeDoesNotOverwriteEndpoints();
 Console.WriteLine("desktop strategy tests passed");
 
@@ -626,6 +630,82 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         }
     }
 
+    public async Task WebhookPostSendsStatusJsonHeadersAndValuesAsync()
+    {
+        HttpRequestMessage? captured = null;
+        string? capturedBody = null;
+        var service = new WebhookService(new HttpClient(new CaptureHandler(async request =>
+        {
+            captured = request;
+            capturedBody = request.Content is null ? null : await request.Content.ReadAsStringAsync();
+            return new HttpResponseMessage(System.Net.HttpStatusCode.Accepted) { Content = new StringContent("ok") };
+        })));
+        var endpoint = NewWebhook("POST alert", "https://hooks.invalid/status", "POST", statusChange: true);
+        endpoint.Headers.Add(new WebhookKeyValue { Key = "Authorization", Value = "Bearer token" });
+        endpoint.Values.Add(new WebhookKeyValue { Key = "room", Value = "gold" });
+
+        var result = await service.SendAsync(endpoint, TestMarket(), DecisionForExecution(ExecutionWithZoneTap(tapIsWickOnly: true)), CancellationToken.None);
+
+        Assert(captured is not null, "POST webhook should send a request");
+        Assert(captured!.Method == HttpMethod.Post, "POST webhook should use POST");
+        Assert(captured.RequestUri?.ToString() == "https://hooks.invalid/status", "POST webhook should not move values into the URL");
+        Assert(captured.Headers.TryGetValues("Authorization", out var auth) && auth.Single() == "Bearer token", "POST webhook should include custom headers");
+        Assert(!string.IsNullOrWhiteSpace(capturedBody), "POST webhook should send a JSON body");
+        using var json = JsonDocument.Parse(capturedBody!);
+        var root = json.RootElement;
+        Assert(root.GetProperty("market").GetString() == "XAUUSD - Gold", "POST JSON should include the market name");
+        Assert(root.GetProperty("symbol").GetString() == "XAUUSD", "POST JSON should include the symbol");
+        Assert(root.GetProperty("status").GetString()!.StartsWith("STATUS:", StringComparison.Ordinal), "POST JSON should include the status label");
+        Assert(root.GetProperty("values").GetProperty("room").GetString() == "gold", "POST JSON should include custom values");
+        Assert(result.Contains("202 Accepted", StringComparison.Ordinal), "POST webhook result should include HTTP status");
+    }
+
+    public async Task WebhookGetSendsStatusValuesInQueryAsync()
+    {
+        HttpRequestMessage? captured = null;
+        var service = new WebhookService(new HttpClient(new CaptureHandler(request =>
+        {
+            captured = request;
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("ok") });
+        })));
+        var endpoint = NewWebhook("GET alert", "https://hooks.invalid/status?existing=1", "GET", statusChange: false);
+        endpoint.Headers.Add(new WebhookKeyValue { Key = "X-Webhook", Value = "enabled" });
+        endpoint.Values.Add(new WebhookKeyValue { Key = "room", Value = "gold desk" });
+
+        var result = await service.SendAsync(endpoint, TestMarket(), DecisionForExecution(ExecutionWithZoneTap(tapIsWickOnly: true)), CancellationToken.None);
+
+        Assert(captured is not null, "GET webhook should send a request");
+        Assert(captured!.Method == HttpMethod.Get, "GET webhook should use GET");
+        Assert(captured.Content is null, "GET webhook should not send a request body");
+        Assert(captured.Headers.TryGetValues("X-Webhook", out var headerValues) && headerValues.Single() == "enabled", "GET webhook should include custom headers");
+        var query = QueryValues(captured.RequestUri!);
+        Assert(query["existing"] == "1", "GET webhook should preserve existing query values");
+        Assert(query["room"] == "gold desk", "GET webhook should include custom values in the query");
+        Assert(query["market"] == "XAUUSD - Gold", "GET webhook should include market in the query");
+        Assert(query["symbol"] == "XAUUSD", "GET webhook should include symbol in the query");
+        Assert(query["status"].StartsWith("STATUS:", StringComparison.Ordinal), "GET webhook should include status in the query");
+        Assert(query.ContainsKey("confidence"), "GET webhook should include confidence in the query");
+
+        Assert(result.Contains("200 OK", StringComparison.Ordinal), "GET webhook result should include HTTP status");
+    }
+
+    public async Task DisabledWebhookDoesNotSendRequestAsync()
+    {
+        var sent = false;
+        var service = new WebhookService(new HttpClient(new CaptureHandler(_ =>
+        {
+            sent = true;
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
+        })));
+        var endpoint = NewWebhook("Disabled alert", "https://hooks.invalid/status", "POST", statusChange: true);
+        endpoint.Enabled = false;
+
+        var result = await service.SendAsync(endpoint, TestMarket(), DecisionForExecution(ExecutionWithZoneTap(tapIsWickOnly: true)), CancellationToken.None);
+
+        Assert(!sent, "disabled webhook should not send an HTTP request");
+        Assert(result.Contains("skipped because it is disabled", StringComparison.OrdinalIgnoreCase), "disabled webhook should explain that it skipped");
+    }
+
     public void WebhookStatusChangeDoesNotOverwriteEndpoints()
     {
         var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
@@ -685,6 +765,29 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
             Enabled = true,
             SendOnStatusChange = statusChange,
         };
+    }
+
+    private static MarketConfig TestMarket()
+    {
+        return new MarketConfig("XAUUSD", "XAUUSD - Gold", "XAUUSD");
+    }
+
+    private static Dictionary<string, string> QueryValues(Uri uri)
+    {
+        return uri.Query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Split('=', 2))
+            .ToDictionary(
+                pair => Uri.UnescapeDataString(pair[0].Replace("+", " ")),
+                pair => pair.Length > 1 ? Uri.UnescapeDataString(pair[1].Replace("+", " ")) : string.Empty);
+    }
+
+    private sealed class CaptureHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> handleAsync) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return handleAsync(request);
+        }
     }
 
     private static List<MarketCandle> ExecutionWithZoneTap(bool tapIsWickOnly)

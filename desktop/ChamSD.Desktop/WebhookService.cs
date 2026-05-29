@@ -4,10 +4,20 @@ namespace ChamSD_Desktop;
 
 public sealed class WebhookService
 {
-    private readonly HttpClient _http = new()
+    private readonly HttpClient _http;
+
+    public WebhookService()
+        : this(new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(20),
+        })
     {
-        Timeout = TimeSpan.FromSeconds(20),
-    };
+    }
+
+    public WebhookService(HttpClient http)
+    {
+        _http = http;
+    }
 
     public async Task<string> SendAsync(
         WebhookEndpoint endpoint,

@@ -13,5 +13,6 @@
     <Compile Include="..\ChamSD.Desktop\PredictionParser.cs" Link="PredictionParser.cs" />
     <Compile Include="..\ChamSD.Desktop\StrategyEngine.cs" Link="StrategyEngine.cs" />
     <Compile Include="..\ChamSD.Desktop\WebhookSettingsService.cs" Link="WebhookSettingsService.cs" />
+    <Compile Include="..\ChamSD.Desktop\WebhookService.cs" Link="WebhookService.cs" />
   </ItemGroup>
 </Project>
