@@ -5,7 +5,7 @@ public sealed class StrategyEngine
     private const int PivotLen = 2;
     private const int AvgRangeLen = 5;
     private const double ImpulseMult = 0.6;
-    private const int MaxZones = 6;
+    private const int MaxZones = 1;
 
     public StrategyDecision CalculateStrategyDecision(
         IReadOnlyList<MarketCandle> executionCandles,
@@ -168,7 +168,7 @@ public sealed class StrategyEngine
                 {
                     Label = "5M structure alignment",
                     Ok = bias.Direction == "bullish" && latest.Bull || bias.Direction == "bearish" && latest.Bear,
-                    Text = latest.Bull ? "5M market structure is bullish." : latest.Bear ? "5M market structure is bearish." : "5M has no clean market-structure direction.",
+                    Text = latest.Bull ? "5M market structure is bullish. 5M BOS accepts wick or body breaks." : latest.Bear ? "5M market structure is bearish. 5M BOS accepts wick or body breaks." : "5M has no clean market-structure direction.",
                 },
                 new ChecklistItem
                 {
@@ -177,6 +177,12 @@ public sealed class StrategyEngine
                     Text = hasAlignedTap
                         ? "Price has tapped a live supply/demand zone aligned with HTF bias."
                         : "Waiting for price to tap the newest valid zone in the HTF direction.",
+                },
+                new ChecklistItem
+                {
+                    Label = "Newest zone only",
+                    Ok = execution.Zones.Count <= 1,
+                    Text = "Only the newest zone from the latest structure break is valid; older zones are ignored.",
                 },
                 new ChecklistItem
                 {
@@ -278,14 +284,14 @@ public sealed class StrategyEngine
             }
 
             var previous = index > 0 ? candles[index - 1] : null;
-            var bodyBrokeHigh = previous is not null && lastSwingHigh is not null && candle.Close > lastSwingHigh && previous.Close <= lastSwingHigh;
-            var bodyBrokeLow = previous is not null && lastSwingLow is not null && candle.Close < lastSwingLow && previous.Close >= lastSwingLow;
-            if (bodyBrokeHigh)
+            var brokeHigh = previous is not null && lastSwingHigh is not null && (candle.High > lastSwingHigh || candle.Close > lastSwingHigh) && previous.High <= lastSwingHigh;
+            var brokeLow = previous is not null && lastSwingLow is not null && (candle.Low < lastSwingLow || candle.Close < lastSwingLow) && previous.Low >= lastSwingLow;
+            if (brokeHigh)
             {
                 structureDirection = "bullish";
             }
 
-            if (bodyBrokeLow)
+            if (brokeLow)
             {
                 structureDirection = "bearish";
             }
@@ -295,14 +301,16 @@ public sealed class StrategyEngine
             var avgRange = GetRangeAverage(ranges, index, AvgRangeLen);
             var strongUp = avgRange is not null && candle.Close > candle.Open && ranges[index] > avgRange * ImpulseMult;
             var strongDown = avgRange is not null && candle.Close < candle.Open && ranges[index] > avgRange * ImpulseMult;
-            var bosUp = previous is not null && lastSwingHigh is not null && candle.Close > lastSwingHigh && previous.Close <= lastSwingHigh;
-            var bosDown = previous is not null && lastSwingLow is not null && candle.Close < lastSwingLow && previous.Close >= lastSwingLow;
+            var bosUp = brokeHigh;
+            var bosDown = brokeLow;
 
             if (bosUp && bull && strongUp)
             {
                 var baseZone = FindLastOppositeCandle(candles, index, wantRed: true);
                 if (baseZone is not null)
                 {
+                    zones.Clear();
+                    lastTap = null;
                     zones.Insert(0, baseZone with { IsDemand = true, CreatedAt = index });
                 }
             }
@@ -312,6 +320,8 @@ public sealed class StrategyEngine
                 var baseZone = FindLastOppositeCandle(candles, index, wantRed: false);
                 if (baseZone is not null)
                 {
+                    zones.Clear();
+                    lastTap = null;
                     zones.Insert(0, baseZone with { IsDemand = false, CreatedAt = index });
                 }
             }
@@ -321,13 +331,9 @@ public sealed class StrategyEngine
                 zones.RemoveAt(zones.Count - 1);
             }
 
-            foreach (var zone in zones)
+            var zone = zones.FirstOrDefault();
+            if (zone is not null && !zone.Invalidated)
             {
-                if (zone.Invalidated)
-                {
-                    continue;
-                }
-
                 var tappedNow = candle.Low <= zone.Top && candle.High >= zone.Bot;
                 if (tappedNow && !zone.Tapped && index > zone.CreatedAt)
                 {
@@ -339,11 +345,15 @@ public sealed class StrategyEngine
                 if (bodyThrough)
                 {
                     zone.Invalidated = true;
+                    if (lastTap is not null && lastTap.Top == zone.Top && lastTap.Bot == zone.Bot && lastTap.IsDemand == zone.IsDemand)
+                    {
+                        lastTap = null;
+                    }
                 }
             }
 
-            var demandTapClose = previous is not null && lastTap is not null && lastTap.IsDemand && previous.Low <= lastTap.Top && previous.Low >= lastTap.Bot;
-            var supplyTapClose = previous is not null && lastTap is not null && !lastTap.IsDemand && previous.High <= lastTap.Top && previous.High >= lastTap.Bot;
+            var demandTapClose = previous is not null && lastTap is not null && lastTap.IsDemand && previous.Low <= lastTap.Top && previous.High >= lastTap.Bot;
+            var supplyTapClose = previous is not null && lastTap is not null && !lastTap.IsDemand && previous.Low <= lastTap.Top && previous.High >= lastTap.Bot;
             var buyTrigger = demandTapClose && candle.High > previous!.High && bull;
             var sellTrigger = supplyTapClose && candle.Low < previous!.Low && bear;
             var aPlusBuy = buyTrigger && lastTap is not null && candle.Open >= lastTap.Top;

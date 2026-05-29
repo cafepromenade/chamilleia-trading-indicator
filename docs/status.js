@@ -140,7 +140,7 @@
 
     const zoneMarkup = result.zones
       .filter((zone) => zone.top >= priceMin && zone.bot <= priceMax)
-      .slice(0, 4)
+      .slice(0, 1)
       .map((zone) => {
         const yTop = yFor(zone.top);
         const yBot = yFor(zone.bot);

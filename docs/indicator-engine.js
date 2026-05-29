@@ -3,7 +3,7 @@
     pivotLen: 2,
     avgRangeLen: 5,
     impulseMult: 0.6,
-    maxZones: 6,
+    maxZones: 1,
   };
 
   function round(value, places = 2) {
@@ -153,16 +153,16 @@
       }
 
       const previous = candles[index - 1];
-      const bodyBrokeHigh = Boolean(
-        previous && lastSwingHigh !== null && candle.close > lastSwingHigh && previous.close <= lastSwingHigh
+      const brokeHigh = Boolean(
+        previous && lastSwingHigh !== null && (candle.high > lastSwingHigh || candle.close > lastSwingHigh) && previous.high <= lastSwingHigh
       );
-      const bodyBrokeLow = Boolean(
-        previous && lastSwingLow !== null && candle.close < lastSwingLow && previous.close >= lastSwingLow
+      const brokeLow = Boolean(
+        previous && lastSwingLow !== null && (candle.low < lastSwingLow || candle.close < lastSwingLow) && previous.low >= lastSwingLow
       );
-      if (bodyBrokeHigh) {
+      if (brokeHigh) {
         structureDirection = "bullish";
       }
-      if (bodyBrokeLow) {
+      if (brokeLow) {
         structureDirection = "bearish";
       }
       const bull = structureDirection === "bullish";
@@ -176,16 +176,14 @@
         avgRange && candle.close < candle.open && ranges[index] > avgRange * settings.impulseMult
       );
 
-      const bosUp = Boolean(
-        previous && lastSwingHigh !== null && candle.close > lastSwingHigh && previous.close <= lastSwingHigh
-      );
-      const bosDown = Boolean(
-        previous && lastSwingLow !== null && candle.close < lastSwingLow && previous.close >= lastSwingLow
-      );
+      const bosUp = brokeHigh;
+      const bosDown = brokeLow;
 
       if (bosUp && bull && strongUp) {
         const base = findLastOppositeCandle(candles, index, true);
         if (base) {
+          zones.length = 0;
+          lastTap = null;
           zones.unshift({ ...base, isDemand: true, invalidated: false, tapped: false, createdAt: index });
           events.push({ type: "BOS up", bar: index });
         }
@@ -194,20 +192,15 @@
       if (bosDown && bear && strongDown) {
         const base = findLastOppositeCandle(candles, index, false);
         if (base) {
+          zones.length = 0;
+          lastTap = null;
           zones.unshift({ ...base, isDemand: false, invalidated: false, tapped: false, createdAt: index });
           events.push({ type: "BOS down", bar: index });
         }
       }
 
-      while (zones.length > settings.maxZones) {
-        zones.pop();
-      }
-
-      zones.forEach((zone) => {
-        if (zone.invalidated) {
-          return;
-        }
-
+      const zone = zones[0];
+      if (zone && !zone.invalidated) {
         const tappedNow = candle.low <= zone.top && candle.high >= zone.bot;
         if (tappedNow && !zone.tapped && index > zone.createdAt) {
           zone.tapped = true;
@@ -223,14 +216,17 @@
         const bodyThrough = zone.isDemand ? candle.close < zone.bot : candle.close > zone.top;
         if (bodyThrough) {
           zone.invalidated = true;
+          if (lastTap && lastTap.top === zone.top && lastTap.bot === zone.bot && lastTap.isDemand === zone.isDemand) {
+            lastTap = null;
+          }
         }
-      });
+      }
 
       const demandTapClose = Boolean(
-        previous && lastTap && lastTap.isDemand && previous.low <= lastTap.top && previous.low >= lastTap.bot
+        previous && lastTap && lastTap.isDemand && previous.low <= lastTap.top && previous.high >= lastTap.bot
       );
       const supplyTapClose = Boolean(
-        previous && lastTap && !lastTap.isDemand && previous.high <= lastTap.top && previous.high >= lastTap.bot
+        previous && lastTap && !lastTap.isDemand && previous.low <= lastTap.top && previous.high >= lastTap.bot
       );
       const buyTrigger = Boolean(demandTapClose && candle.high > previous.high && bull);
       const sellTrigger = Boolean(supplyTapClose && candle.low < previous.low && bear);
@@ -610,8 +606,9 @@
         { label: "Top-down story", ok: d1Bias.direction === "neutral" || d1Bias.direction === bias.direction || bias.direction === "neutral", text: `Daily ${d1Bias.direction}, 4H ${h4Bias.direction}, 1H ${h1Bias.direction}, 30M ${m30Bias.direction}, 15M ${m15Bias.direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.` },
         { label: "Trading session", ok: session.ok, text: session.text },
         { label: "4H/1H bias", ok: bias.direction !== "neutral", text: `${bias.reason} Indication level: ${indicationLevel ?? "-"}.` },
-        { label: "5M structure alignment", ok: (bias.direction === "bullish" && latest.bull) || (bias.direction === "bearish" && latest.bear), text: latest.bull ? "5M market structure is bullish." : latest.bear ? "5M market structure is bearish." : "5M has no clean market-structure direction." },
+        { label: "5M structure alignment", ok: (bias.direction === "bullish" && latest.bull) || (bias.direction === "bearish" && latest.bear), text: latest.bull ? "5M market structure is bullish. 5M BOS accepts wick or body breaks." : latest.bear ? "5M market structure is bearish. 5M BOS accepts wick or body breaks." : "5M has no clean market-structure direction." },
         { label: "Zone tap", ok: hasAlignedTap, text: hasAlignedTap ? "Price has tapped a live supply/demand zone aligned with HTF bias." : "Waiting for price to tap the newest valid zone in the HTF direction." },
+        { label: "Newest zone only", ok: execution.zones.length <= 1, text: "Only the newest zone from the latest structure break is valid; older zones are ignored." },
         { label: "Entry trigger", ok: alignedBuy || alignedSell, text: alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : entryModeText(latest, bias.direction, hasAlignedTap) },
         { label: "Stop/exit plan", ok: risk.stopWithinLimit, text: risk.text },
         { label: "Invalidation", ok: !newestZoneInvalidated, text: newestZoneInvalidated ? "Newest zone was body-closed through. Wait for minor structure reset." : "No body-close invalidation on the newest tracked zone." },

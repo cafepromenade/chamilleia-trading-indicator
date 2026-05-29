@@ -272,7 +272,7 @@ public sealed partial class MainPage : Page
 
         if (_currentDecision is not null)
         {
-            foreach (var zone in _currentDecision.Execution.Zones.Where(zone => zone.Top >= priceMin && zone.Bot <= priceMax && zone.Top <= priceMax && zone.Bot >= priceMin).Take(4))
+            foreach (var zone in _currentDecision.Execution.Zones.Where(zone => zone.Top >= priceMin && zone.Bot <= priceMax && zone.Top <= priceMax && zone.Bot >= priceMin).Take(1))
             {
                 var visibleTop = Math.Clamp(zone.Top, priceMin, priceMax);
                 var visibleBot = Math.Clamp(zone.Bot, priceMin, priceMax);
@@ -526,7 +526,9 @@ Daily: {decision.D1Bias.Direction} - {decision.D1Bias.Reason}
 Strategy rules:
 - 4H overrides 1H. HTF body-close breakout creates the indication level.
 - 5M/15M waits for correction, newest supply/demand zone tap, then break-of-candle continuation.
+- 5M BOS can be a wick or a full candle body; HTF indication still uses body close.
 - Demand is the last red candle before an aggressive push up. Supply is the last green candle before an aggressive push down.
+- Only the newest zone from the latest structure break is valid; older zones are ignored.
 - If a candle body closes through the zone, the zone is invalid and the bot waits for minor structure reset.
 - If market is ranging, use support/resistance only and keep targets strict.
 - Stop goes outside the tapped zone. TP1 is 1:1 and TP2 is 1:2.
