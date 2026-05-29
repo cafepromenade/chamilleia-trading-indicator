@@ -6,6 +6,7 @@
   <title>Chamilleia Supply &amp; Demand - Simple TradingView Indicator</title>
   <meta name="description" content="A plain-English guide to Chamilleia's TradingView supply and demand indicator, with a simple automated Buy, Sell, or Wait status demo." />
   <link rel="stylesheet" href="style.css" />
+  <script src="indicator-engine.js" defer></script>
   <script src="status.js" defer></script>
 </head>
 <body>
@@ -129,33 +130,53 @@
         <p class="eyebrow">Automated label</p>
         <h2>The Status label is the big simple answer</h2>
         <p class="section-copy">
-          The real TradingView indicator checks the chart by itself. This practice
-          box lets you press the tiny choices and see what answer comes out.
+          The website cannot run Pine Script itself, so this page runs a
+          JavaScript version of the same rules on live 5-minute Coinbase candles.
         </p>
       </div>
 
       <div class="lab-layout">
         <div class="chart-demo" aria-hidden="true">
-          <div class="zone supply-zone">Supply area</div>
-          <div class="candles">
-            <span class="candle up tall"></span>
-            <span class="candle up"></span>
-            <span class="candle down short"></span>
-            <span class="candle down"></span>
-            <span class="candle up short"></span>
-            <span class="candle up tall"></span>
-            <span class="candle down"></span>
-            <span class="candle up status-candle"></span>
-          </div>
-          <div class="zone demand-zone">Demand area</div>
+          <div class="zone supply-zone" id="runner-supply-zone">Supply area</div>
+          <div class="candles" id="runner-candles"></div>
+          <div class="zone demand-zone" id="runner-demand-zone">Demand area</div>
+          <p class="chart-caption" id="runner-caption">Loading live candle data.</p>
         </div>
 
         <div class="status-panel">
-          <div id="status-output" class="status-output wait" role="status" aria-live="polite">
-            <span class="status-title">STATUS: WAIT</span>
-            <span class="status-reason">Choose the chart conditions to see the automatic label.</span>
+          <div class="engine-card">
+            <p class="mini-label">Live JavaScript runner</p>
+            <div id="engine-output" class="status-output wait" role="status" aria-live="polite">
+              <span class="status-title">STATUS: WAIT</span>
+              <span class="status-reason">Loading live candles.</span>
+            </div>
+
+            <div class="market-controls">
+              <label class="market-select-label" for="market-select">Real market</label>
+              <select id="market-select" class="market-select">
+                <option value="BTC-USD">BTC-USD</option>
+                <option value="ETH-USD">ETH-USD</option>
+                <option value="SOL-USD">SOL-USD</option>
+                <option value="LTC-USD">LTC-USD</option>
+              </select>
+              <button type="button" class="scenario-btn active" id="reload-live">Refresh</button>
+            </div>
+
+            <dl class="engine-facts" id="engine-facts">
+              <div><dt>Market</dt><dd>-</dd></div>
+              <div><dt>Last close</dt><dd>-</dd></div>
+              <div><dt>EMA</dt><dd>-</dd></div>
+              <div><dt>Zones found</dt><dd>-</dd></div>
+              <div><dt>Last candle</dt><dd>-</dd></div>
+              <div><dt>Source</dt><dd>Coinbase</dd></div>
+            </dl>
           </div>
 
+          <p class="practice-title">Practice without chart data</p>
+          <div id="status-output" class="status-output wait" role="status" aria-live="polite">
+            <span class="status-title">STATUS: WAIT</span>
+            <span class="status-reason">Choose the simple conditions to see the teaching label.</span>
+          </div>
           <form class="signal-controls" aria-label="Status label controls">
             <fieldset>
               <legend>1. Is the price picture mostly going up or down?</legend>
