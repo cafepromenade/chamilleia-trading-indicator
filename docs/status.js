@@ -1,6 +1,7 @@
 (function () {
   const heroStatus = document.querySelector("#hero-status");
   const heroNote = document.querySelector("#hero-status-note");
+  const liveStatusBar = document.querySelector("#live-status-bar");
   const engineOutput = document.querySelector("#engine-output");
   const engineFacts = document.querySelector("#engine-facts");
   const chartStatus = document.querySelector("#chart-status");
@@ -8,6 +9,9 @@
   const runnerCaption = document.querySelector("#runner-caption");
   const marketSelect = document.querySelector("#market-select");
   const reloadLive = document.querySelector("#reload-live");
+  const strategyChecklist = document.querySelector("#strategy-checklist");
+  const riskPlan = document.querySelector("#risk-plan");
+  const riskNote = document.querySelector("#risk-note");
 
   const engineSettings = {
     pivotLen: 2,
@@ -20,22 +24,22 @@
     XAUUSD: {
       name: "XAUUSD - Gold",
       source: "BiQuote",
-      url: "https://biquote.io/api/XAUUSD/ohlc?interval=5m",
+      symbol: "XAUUSD",
     },
     GBPJPY: {
       name: "GBPJPY",
       source: "BiQuote",
-      url: "https://biquote.io/api/GBPJPY/ohlc?interval=5m",
+      symbol: "GBPJPY",
     },
     EURUSD: {
       name: "EURUSD",
       source: "BiQuote",
-      url: "https://biquote.io/api/EURUSD/ohlc?interval=5m",
+      symbol: "EURUSD",
     },
     BTCUSD: {
       name: "BTCUSD",
       source: "BiQuote",
-      url: "https://biquote.io/api/BTCUSD/ohlc?interval=5m",
+      symbol: "BTCUSD",
     },
   };
 
@@ -57,10 +61,17 @@
     heroStatus.parentElement.className = `status-preview ${result.className}`;
     heroStatus.textContent = result.label;
     heroNote.textContent = result.note;
+    liveStatusBar.className = `live-status-bar ${result.className}`;
+    liveStatusBar.querySelector(".bar-status").textContent = result.label;
+    liveStatusBar.querySelector(".bar-note").textContent = result.note;
   }
 
   function renderFact(term, value) {
     return `<div><dt>${term}</dt><dd>${value}</dd></div>`;
+  }
+
+  function biquoteUrl(symbol, interval) {
+    return `https://biquote.io/api/${encodeURIComponent(symbol)}/ohlc?interval=${encodeURIComponent(interval)}`;
   }
 
   function formatPrice(value) {
@@ -165,23 +176,51 @@
     `;
   }
 
-  function renderEngineResult({ productId, candles, source }) {
-    const result = window.ChamilleiaEngine.calculateChamilleiaStatus(candles, engineSettings);
-    const latest = result.latest;
+  function renderStrategyChecklist(items) {
+    strategyChecklist.innerHTML = items
+      .map((item) => `
+        <li class="${item.ok ? "ok" : "wait"}">
+          <span>${item.ok ? "YES" : "WAIT"}</span>
+          <div><strong>${item.label}</strong><p>${item.text}</p></div>
+        </li>
+      `)
+      .join("");
+  }
+
+  function renderRiskPlan(risk) {
+    riskPlan.innerHTML = [
+      renderFact("Entry", risk.entry === null ? "-" : formatPrice(risk.entry)),
+      renderFact("Stop", risk.stop === null ? "-" : formatPrice(risk.stop)),
+      renderFact("TP1", risk.targetOne === null ? "-" : formatPrice(risk.targetOne)),
+      renderFact("TP2", risk.targetTwo === null ? "-" : formatPrice(risk.targetTwo)),
+    ].join("");
+    riskNote.textContent = risk.text;
+  }
+
+  function renderEngineResult({ productId, candles, h1Candles, h4Candles, source }) {
+    const decision = window.ChamilleiaEngine.calculateStrategyDecision({
+      executionCandles: candles,
+      h1Candles,
+      h4Candles,
+    }, engineSettings);
+    const latest = decision.execution.latest;
     const lastCandle = candles[candles.length - 1];
     const visibleCandles = candles.slice(-72);
 
-    setEngineOutput(latest);
-    renderLiveChart({ candles: visibleCandles, result, productId });
-    runnerCaption.textContent = `${productId} live 5-minute candles from ${source}. Last candle: ${formatDateTime(lastCandle.time)}.`;
+    liveStatusBar.querySelector(".bar-market").textContent = productId;
+    setEngineOutput(decision);
+    renderLiveChart({ candles: visibleCandles, result: decision.execution, productId });
+    runnerCaption.textContent = `${productId} live 5-minute chart with 1H and 4H strategy bias from ${source}. Last 5M candle: ${formatDateTime(lastCandle.time)}.`;
     engineFacts.innerHTML = [
       renderFact("Market", productId),
+      renderFact("Phase", decision.phase),
+      renderFact("HTF bias", `${decision.bias.direction.toUpperCase()} (${decision.bias.source})`),
+      renderFact("Confidence", `${decision.confidence}%`),
       renderFact("Last close", formatPrice(latest.close)),
-      renderFact("EMA", formatPrice(latest.ema)),
-      renderFact("Zones found", result.zones.length),
       renderFact("Last candle", formatDateTime(lastCandle.time)),
-      renderFact("Source", source),
     ].join("");
+    renderStrategyChecklist(decision.checklist);
+    renderRiskPlan(decision.risk);
   }
 
   function parseBiquoteCandles(payload) {
@@ -239,15 +278,26 @@
     });
 
     try {
-      const payload = await fetchJsonWithFallback(market.url);
-      const candles = parseBiquoteCandles(payload);
+      const [payload5m, payload1h, payload4h] = await Promise.all([
+        fetchJsonWithFallback(biquoteUrl(market.symbol, "5m")),
+        fetchJsonWithFallback(biquoteUrl(market.symbol, "1h")),
+        fetchJsonWithFallback(biquoteUrl(market.symbol, "4h")),
+      ]);
+      const candles = parseBiquoteCandles(payload5m);
+      const h1Candles = parseBiquoteCandles(payload1h);
+      const h4Candles = parseBiquoteCandles(payload4h);
       if (candles.length < 30) {
-        throw new Error("Not enough candle data returned");
+        throw new Error("Not enough 5M candle data returned");
+      }
+      if (h1Candles.length < 30 || h4Candles.length < 30) {
+        throw new Error("Not enough higher-timeframe candle data returned");
       }
 
       renderEngineResult({
         productId: market.name,
         candles,
+        h1Candles,
+        h4Candles,
         source: market.source,
       });
     } catch (error) {
@@ -265,6 +315,14 @@
         renderFact("Last candle", "-"),
         renderFact("Source", market.source),
       ].join("");
+      strategyChecklist.innerHTML = "";
+      renderRiskPlan({
+        entry: null,
+        stop: null,
+        targetOne: null,
+        targetTwo: null,
+        text: "Live data is unavailable, so no automated strategy can be calculated.",
+      });
     } finally {
       reloadLive.disabled = false;
       reloadLive.textContent = "Refresh";

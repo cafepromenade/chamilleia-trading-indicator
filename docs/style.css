@@ -31,6 +31,63 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.live-status-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.65rem 1.5rem;
+  border-bottom: 2px solid var(--yellow);
+  background: rgba(13, 20, 31, 0.96);
+  color: var(--ink);
+}
+
+.live-status-bar .bar-market {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.live-status-bar .bar-status {
+  color: var(--yellow);
+  font-weight: 900;
+}
+
+.live-status-bar .bar-note {
+  min-width: 0;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-status-bar.buy {
+  border-color: var(--green);
+}
+
+.live-status-bar.buy .bar-status {
+  color: var(--green);
+}
+
+.live-status-bar.sell {
+  border-color: var(--red);
+}
+
+.live-status-bar.sell .bar-status {
+  color: var(--red);
+}
+
+.live-status-bar.no-trade {
+  border-color: var(--blue);
+}
+
+.live-status-bar.no-trade .bar-status {
+  color: var(--blue);
+}
+
 a {
   color: var(--teal);
   text-decoration: none;
@@ -588,6 +645,84 @@ h2 {
   font-weight: 800;
 }
 
+.strategy-box {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.strategy-box h3 {
+  font-size: 1rem;
+}
+
+.strategy-checklist {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+}
+
+.strategy-checklist li {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.strategy-checklist li > span {
+  display: grid;
+  place-items: center;
+  min-height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  color: var(--yellow);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.strategy-checklist li.ok > span {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(66, 211, 146, 0.1);
+}
+
+.strategy-checklist strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.strategy-checklist p,
+.risk-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.risk-plan {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.risk-plan div {
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.risk-plan dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.risk-plan dd {
+  color: var(--ink);
+  font-weight: 900;
+}
+
 .plain-warning {
   display: grid;
   gap: 0.55rem;
@@ -740,6 +875,15 @@ footer .muted {
     flex-direction: column;
   }
 
+  .live-status-bar {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .live-status-bar .bar-note {
+    white-space: normal;
+  }
+
   nav ul {
     justify-content: flex-start;
   }
@@ -761,7 +905,8 @@ footer .muted {
   }
 
   .market-controls,
-  .engine-facts {
+  .engine-facts,
+  .risk-plan {
     grid-template-columns: 1fr;
   }
 

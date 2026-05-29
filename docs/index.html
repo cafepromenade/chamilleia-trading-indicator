@@ -10,6 +10,12 @@
   <script src="status.js" defer></script>
 </head>
 <body>
+  <div id="live-status-bar" class="live-status-bar wait">
+    <span class="bar-market">XAUUSD - Gold</span>
+    <strong class="bar-status">STATUS: LOADING</strong>
+    <span class="bar-note">Fetching live 4H, 1H, and 5M candles.</span>
+  </div>
+
   <header class="hero">
     <nav aria-label="Primary navigation">
       <a class="brand" href="#top">CHAM S&amp;D</a>
@@ -128,10 +134,10 @@
     <section id="status" class="status-lab">
       <div class="section-heading">
         <p class="eyebrow">Automated label</p>
-        <h2>The Status label is the big simple answer</h2>
+        <h2>Live automated strategy and status</h2>
         <p class="section-copy">
-          The website cannot run Pine Script itself, so this page runs a
-          JavaScript version of the same rules on live 5-minute market candles.
+          The website runs the Trades by Sci ICC flow plus Chamilleia's
+          supply-and-demand entry rules on live 4H, 1H, and 5M candles.
           XAUUSD is first because that is the main market Johnson mentioned.
         </p>
       </div>
@@ -145,7 +151,7 @@
 
         <div class="status-panel">
           <div class="engine-card">
-            <p class="mini-label">Live JavaScript runner</p>
+            <p class="mini-label">Full automated strategy</p>
             <div id="engine-output" class="status-output wait" role="status" aria-live="polite">
               <span class="status-title">STATUS: WAIT</span>
               <span class="status-reason">Loading live candles.</span>
@@ -164,12 +170,28 @@
 
             <dl class="engine-facts" id="engine-facts">
               <div><dt>Market</dt><dd>-</dd></div>
+              <div><dt>Phase</dt><dd>-</dd></div>
+              <div><dt>HTF bias</dt><dd>-</dd></div>
+              <div><dt>Confidence</dt><dd>-</dd></div>
               <div><dt>Last close</dt><dd>-</dd></div>
-              <div><dt>EMA</dt><dd>-</dd></div>
-              <div><dt>Zones found</dt><dd>-</dd></div>
               <div><dt>Last candle</dt><dd>-</dd></div>
-              <div><dt>Source</dt><dd>BiQuote</dd></div>
             </dl>
+
+            <div class="strategy-box">
+              <h3>Automated strategy checklist</h3>
+              <ul id="strategy-checklist" class="strategy-checklist"></ul>
+            </div>
+
+            <div class="strategy-box">
+              <h3>Live risk plan</h3>
+              <dl id="risk-plan" class="risk-plan">
+                <div><dt>Entry</dt><dd>-</dd></div>
+                <div><dt>Stop</dt><dd>-</dd></div>
+                <div><dt>TP1</dt><dd>-</dd></div>
+                <div><dt>TP2</dt><dd>-</dd></div>
+              </dl>
+              <p id="risk-note" class="risk-note">Waiting for a valid live setup.</p>
+            </div>
           </div>
 
           <div class="plain-warning">
