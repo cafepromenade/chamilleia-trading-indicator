@@ -106,6 +106,17 @@ body {
   color: var(--blue);
 }
 
+.live-status-bar.caution {
+  border-color: var(--yellow);
+  background: rgba(71, 55, 20, 0.98);
+  box-shadow: 0 0 36px rgba(246, 196, 81, 0.26);
+  animation: status-glow-yellow 1.4s ease-in-out infinite alternate;
+}
+
+.live-status-bar.caution .bar-status {
+  color: var(--yellow);
+}
+
 a {
   color: var(--teal);
   text-decoration: none;
@@ -236,6 +247,11 @@ h1 {
   background: rgba(138, 180, 255, 0.1);
 }
 
+.status-preview.caution {
+  border-color: var(--yellow);
+  background: rgba(246, 196, 81, 0.14);
+}
+
 .status-kicker {
   color: var(--muted);
   font-size: 0.78rem;
@@ -267,6 +283,11 @@ h1 {
 .status-preview.no-trade #hero-status,
 .status-output.no-trade .status-title {
   color: var(--blue);
+}
+
+.status-preview.caution #hero-status,
+.status-output.caution .status-title {
+  color: var(--yellow);
 }
 
 #hero-status-note,
@@ -482,6 +503,12 @@ h2 {
   background: rgba(25, 43, 73, 0.92);
 }
 
+.chart-status.caution {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  background: rgba(71, 55, 20, 0.92);
+}
+
 .candlestick-chart {
   position: absolute;
   inset: 0;
@@ -602,6 +629,16 @@ h2 {
   }
 }
 
+@keyframes status-glow-yellow {
+  from {
+    filter: brightness(1);
+  }
+
+  to {
+    filter: brightness(1.28);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .status-change,
   .live-chart.status-change .chart-candle.latest {
@@ -680,6 +717,12 @@ h2 {
   border-color: var(--blue);
   background: rgba(138, 180, 255, 0.1);
   box-shadow: inset 0 0 0 1px rgba(138, 180, 255, 0.18), 0 0 24px rgba(138, 180, 255, 0.14);
+}
+
+.status-output.caution {
+  border-color: var(--yellow);
+  background: rgba(246, 196, 81, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(246, 196, 81, 0.28), 0 0 34px rgba(246, 196, 81, 0.2);
 }
 
 .market-controls {

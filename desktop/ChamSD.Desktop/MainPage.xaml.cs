@@ -156,6 +156,7 @@ public sealed partial class MainPage : Page
         {
             "buy" => (0xFFEAF8EFu, 0xFF1F9D55u, 0xFF145C32u),
             "sell" => (0xFFFDECECu, 0xFFD64545u, 0xFF8F1D1Du),
+            "caution" => (0xFFFFF3CDu, 0xFFF0B429u, 0xFF7A4F00u),
             "no-trade" => (0xFFF0F2F5u, 0xFF6B7280u, 0xFF343A46u),
             _ => (0xFFFFF7E0u, 0xFFE5B21Fu, 0xFF7A5B00u),
         };
@@ -509,6 +510,8 @@ Strategy rules:
 - If a candle body closes through the zone, the zone is invalid and the bot waits for minor structure reset.
 - If market is ranging, use support/resistance only and keep targets strict.
 - Stop goes outside the tapped zone. TP1 is 1:1 and TP2 is 1:2.
+- Abort trend scanning during random consolidation or when price has no clear structural target near the available daily-history edge.
+- Counter-trend ideas need a strong body-close break and strict 1:1 target.
 
 Checklist:
 {checklist}

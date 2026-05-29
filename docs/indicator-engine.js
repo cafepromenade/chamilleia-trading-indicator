@@ -455,6 +455,40 @@
       : "Aggressive entry would mean pressing inside the zone; safest rule waits for candle close and next-candle break.";
   }
 
+  function analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZoneInvalidated }) {
+    const recent = executionCandles.slice(-24);
+    const recentHigh = Math.max(...recent.map((candle) => candle.high));
+    const recentLow = Math.min(...recent.map((candle) => candle.low));
+    const recentSpan = recentHigh - recentLow;
+    const avgRange = recent.reduce((sum, candle) => sum + (candle.high - candle.low), 0) / Math.max(1, recent.length);
+    const consolidation = recent.length >= 20 && recentSpan < avgRange * 5 && !latest.buyTrigger && !latest.sellTrigger;
+    const historyHigh = Math.max(...d1Candles.map((candle) => candle.high));
+    const historyLow = Math.min(...d1Candles.map((candle) => candle.low));
+    const historyBuffer = Math.max((historyHigh - historyLow) * 0.015, Math.abs(latest.close) * 0.0008);
+    const noUpsideTarget = bias.direction === "bullish" && latest.close >= historyHigh - historyBuffer;
+    const noDownsideTarget = bias.direction === "bearish" && latest.close <= historyLow + historyBuffer;
+    const noHistoricalTarget = noUpsideTarget || noDownsideTarget;
+    const minorResetReady = newestZoneInvalidated && (
+      (bias.direction === "bullish" && latest.bull && m15Bias.direction !== "bearish") ||
+      (bias.direction === "bearish" && latest.bear && m15Bias.direction !== "bullish")
+    );
+    const counterTrend = d1Bias.direction !== "neutral" && bias.direction !== "neutral" && d1Bias.direction !== bias.direction;
+    const counterBreakReady = counterTrend && (
+      (bias.direction === "bullish" && latest.bull && m15Bias.direction === "bullish") ||
+      (bias.direction === "bearish" && latest.bear && m15Bias.direction === "bearish")
+    );
+
+    return {
+      consolidation,
+      historyHigh: round(historyHigh),
+      historyLow: round(historyLow),
+      noHistoricalTarget,
+      minorResetReady,
+      counterTrend,
+      counterBreakReady,
+    };
+  }
+
   function calculateStrategyDecision({ executionCandles, m15Candles, m30Candles, h1Candles, h4Candles, d1Candles }, options = {}) {
     const execution = calculateChamilleiaStatus(executionCandles, options);
     const m15Bias = calculateHtfBias(m15Candles, "15M");
@@ -480,6 +514,7 @@
     const nearSupport = Boolean(rangeFallback && latest.close <= rangeLow + rangeBuffer);
     const nearResistance = Boolean(rangeFallback && latest.close >= rangeHigh - rangeBuffer);
     const newestZoneInvalidated = Boolean(execution.zones[0]?.invalidated);
+    const exceptions = analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZoneInvalidated });
 
     let className = "wait";
     let label = "STATUS: WAIT";
@@ -488,7 +523,14 @@
       ? "No clean 4H or 1H direction. Wait."
       : `Bias is ${bias.direction.toUpperCase()} from ${bias.source}. Wait for a 5M aligned trigger.`;
 
-    if (alignedBuy) {
+    if (exceptions.consolidation || exceptions.noHistoricalTarget) {
+      className = "caution";
+      label = "STATUS: WAIT";
+      phase = exceptions.consolidation ? "CONSOLIDATION FILTER" : "NO TARGET FILTER";
+      note = exceptions.consolidation
+        ? "Recent 5M price action is boxed in. Supply/demand trend rules are paused until structure breaks."
+        : "Price is near the edge of available daily history, so there is no clean structural target.";
+    } else if (alignedBuy) {
       className = "buy";
       label = latest.aPlusBuy ? "STATUS: A+ BUY" : "STATUS: BUY";
       phase = "CONTINUATION";
@@ -535,6 +577,9 @@
     if (alignedBuy || alignedSell) confidence += 20;
     if (latest.aPlusBuy || latest.aPlusSell) confidence += 10;
     if (nearSupport || nearResistance) confidence += 10;
+    if (exceptions.minorResetReady) confidence += 8;
+    if (exceptions.counterBreakReady) confidence += 6;
+    if (exceptions.consolidation || exceptions.noHistoricalTarget) confidence = Math.min(confidence, 20);
     if (newestZoneInvalidated) confidence = Math.min(confidence, 35);
     if (conflict) confidence = Math.min(confidence, 25);
     confidence = Math.max(0, Math.min(100, confidence));
@@ -570,7 +615,10 @@
         { label: "Entry trigger", ok: alignedBuy || alignedSell, text: alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : entryModeText(latest, bias.direction, hasAlignedTap) },
         { label: "Stop/exit plan", ok: risk.stopWithinLimit, text: risk.text },
         { label: "Invalidation", ok: !newestZoneInvalidated, text: newestZoneInvalidated ? "Newest zone was body-closed through. Wait for minor structure reset." : "No body-close invalidation on the newest tracked zone." },
+        { label: "Minor BOS reset", ok: !newestZoneInvalidated || exceptions.minorResetReady, text: newestZoneInvalidated ? (exceptions.minorResetReady ? "Zone failed, but minor structure is rebuilding in the HTF direction." : "Do not jump to the next zone. Wait for a stair-step minor break of structure.") : "No failed zone needs a minor-BOS reset right now." },
         { label: "Range fallback", ok: nearSupport || nearResistance || !rangeFallback, text: rangeFallback ? `Range floor ${rangeLow}, ceiling ${rangeHigh}. ${nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait."}` : "Not using support/resistance fallback while HTF bias is active." },
+        { label: "Consolidation/ATH filter", ok: !exceptions.consolidation && !exceptions.noHistoricalTarget, text: exceptions.consolidation ? "Random consolidation detected from recent 5M compression. Abort trend scanning until price escapes." : exceptions.noHistoricalTarget ? `Near available daily-history edge (${exceptions.historyLow}-${exceptions.historyHigh}); skip if there is no clean structural target.` : "Not boxed in and not at the available daily-history edge." },
+        { label: "Counter trend-line break", ok: !exceptions.counterTrend || exceptions.counterBreakReady, text: exceptions.counterTrend ? (exceptions.counterBreakReady ? "Counter-trend idea has a full structure break in the active direction; keep target strict 1:1." : "Daily context is opposite the active bias. Need a strong body-close break before any counter-trend idea.") : "Not a counter-trend setup against Daily context." },
       ],
       risk,
     };

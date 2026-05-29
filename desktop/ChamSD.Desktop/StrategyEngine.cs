@@ -43,6 +43,7 @@ public sealed class StrategyEngine
         var nearSupport = rangeFallback && rangeBuffer is not null && latest.Close <= rangeLow + rangeBuffer;
         var nearResistance = rangeFallback && rangeBuffer is not null && latest.Close >= rangeHigh - rangeBuffer;
         var newestZoneInvalidated = execution.Zones.FirstOrDefault()?.Invalidated == true;
+        var exceptions = AnalyzeExceptions(executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZoneInvalidated);
 
         var className = "wait";
         var label = "STATUS: WAIT";
@@ -51,7 +52,16 @@ public sealed class StrategyEngine
             ? "No clean 4H or 1H direction. Wait."
             : $"Bias is {bias.Direction.ToUpperInvariant()} from {bias.Source}. Wait for a 5M aligned trigger.";
 
-        if (alignedBuy)
+        if (exceptions.Consolidation || exceptions.NoHistoricalTarget)
+        {
+            className = "caution";
+            label = "STATUS: WAIT";
+            phase = exceptions.Consolidation ? "CONSOLIDATION FILTER" : "NO TARGET FILTER";
+            note = exceptions.Consolidation
+                ? "Recent 5M price action is boxed in. Supply/demand trend rules are paused until structure breaks."
+                : "Price is near the edge of available daily history, so there is no clean structural target.";
+        }
+        else if (alignedBuy)
         {
             className = "buy";
             label = latest.APlusBuy ? "STATUS: A+ BUY" : "STATUS: BUY";
@@ -112,6 +122,9 @@ public sealed class StrategyEngine
         if (alignedBuy || alignedSell) confidence += 20;
         if (latest.APlusBuy || latest.APlusSell) confidence += 10;
         if (nearSupport || nearResistance) confidence += 10;
+        if (exceptions.MinorResetReady) confidence += 8;
+        if (exceptions.CounterBreakReady) confidence += 6;
+        if (exceptions.Consolidation || exceptions.NoHistoricalTarget) confidence = Math.Min(confidence, 20);
         if (newestZoneInvalidated) confidence = Math.Min(confidence, 35);
         if (conflict) confidence = Math.Min(confidence, 25);
         confidence = Math.Clamp(confidence, 0, 100);
@@ -180,9 +193,33 @@ public sealed class StrategyEngine
                 },
                 new ChecklistItem
                 {
+                    Label = "Minor BOS reset",
+                    Ok = !newestZoneInvalidated || exceptions.MinorResetReady,
+                    Text = newestZoneInvalidated
+                        ? exceptions.MinorResetReady ? "Zone failed, but minor structure is rebuilding in the HTF direction." : "Do not jump to the next zone. Wait for a stair-step minor break of structure."
+                        : "No failed zone needs a minor-BOS reset right now.",
+                },
+                new ChecklistItem
+                {
                     Label = "Range fallback",
                     Ok = nearSupport || nearResistance || !rangeFallback,
                     Text = rangeFallback ? $"Range floor {FormatNullable(rangeLow)}, ceiling {FormatNullable(rangeHigh)}. {(nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait.")}" : "Not using support/resistance fallback while HTF bias is active.",
+                },
+                new ChecklistItem
+                {
+                    Label = "Consolidation/ATH filter",
+                    Ok = !exceptions.Consolidation && !exceptions.NoHistoricalTarget,
+                    Text = exceptions.Consolidation
+                        ? "Random consolidation detected from recent 5M compression. Abort trend scanning until price escapes."
+                        : exceptions.NoHistoricalTarget ? $"Near available daily-history edge ({FormatNullable(exceptions.HistoryLow)}-{FormatNullable(exceptions.HistoryHigh)}); skip if there is no clean structural target." : "Not boxed in and not at the available daily-history edge.",
+                },
+                new ChecklistItem
+                {
+                    Label = "Counter trend-line break",
+                    Ok = !exceptions.CounterTrend || exceptions.CounterBreakReady,
+                    Text = exceptions.CounterTrend
+                        ? exceptions.CounterBreakReady ? "Counter-trend idea has a full structure break in the active direction; keep target strict 1:1." : "Daily context is opposite the active bias. Need a strong body-close break before any counter-trend idea."
+                        : "Not a counter-trend setup against Daily context.",
                 },
             },
             Risk = riskPlan,
@@ -476,6 +513,45 @@ public sealed class StrategyEngine
         return "Aggressive entry would mean pressing inside the zone; safest rule waits for candle close and next-candle break.";
     }
 
+    private static ExceptionRead AnalyzeExceptions(
+        IReadOnlyList<MarketCandle> executionCandles,
+        IReadOnlyList<MarketCandle> d1Candles,
+        ChamilleiaLatest latest,
+        BiasChoice bias,
+        HtfBias d1Bias,
+        HtfBias m15Bias,
+        bool newestZoneInvalidated)
+    {
+        var recent = executionCandles.TakeLast(24).ToList();
+        var recentHigh = recent.Max(candle => candle.High);
+        var recentLow = recent.Min(candle => candle.Low);
+        var recentSpan = recentHigh - recentLow;
+        var avgRange = recent.Average(candle => candle.High - candle.Low);
+        var consolidation = recent.Count >= 20 && recentSpan < avgRange * 5 && !latest.BuyTrigger && !latest.SellTrigger;
+        var historyHigh = d1Candles.Max(candle => candle.High);
+        var historyLow = d1Candles.Min(candle => candle.Low);
+        var historyBuffer = Math.Max((historyHigh - historyLow) * 0.015, Math.Abs(latest.Close) * 0.0008);
+        var noUpsideTarget = bias.Direction == "bullish" && latest.Close >= historyHigh - historyBuffer;
+        var noDownsideTarget = bias.Direction == "bearish" && latest.Close <= historyLow + historyBuffer;
+        var noHistoricalTarget = noUpsideTarget || noDownsideTarget;
+        var minorResetReady = newestZoneInvalidated && (
+            bias.Direction == "bullish" && latest.Bull && m15Bias.Direction != "bearish" ||
+            bias.Direction == "bearish" && latest.Bear && m15Bias.Direction != "bullish");
+        var counterTrend = d1Bias.Direction != "neutral" && bias.Direction != "neutral" && d1Bias.Direction != bias.Direction;
+        var counterBreakReady = counterTrend && (
+            bias.Direction == "bullish" && latest.Bull && m15Bias.Direction == "bullish" ||
+            bias.Direction == "bearish" && latest.Bear && m15Bias.Direction == "bearish");
+
+        return new ExceptionRead(
+            consolidation,
+            Round(historyHigh),
+            Round(historyLow),
+            noHistoricalTarget,
+            minorResetReady,
+            counterTrend,
+            counterBreakReady);
+    }
+
     private static (bool Ok, string Text) GetSessionContext(DateTimeOffset candleTime)
     {
         TimeZoneInfo eastern;
@@ -655,6 +731,15 @@ public sealed class StrategyEngine
     private sealed record BodySwing(double Price, int Bar);
 
     private sealed record BodyStructure(BodySwing? SwingHigh, BodySwing? SwingLow, BodySwing? PriorSwingHigh, BodySwing? PriorSwingLow);
+
+    private sealed record ExceptionRead(
+        bool Consolidation,
+        double? HistoryHigh,
+        double? HistoryLow,
+        bool NoHistoricalTarget,
+        bool MinorResetReady,
+        bool CounterTrend,
+        bool CounterBreakReady);
 
     private sealed record WorkingZone
     {
