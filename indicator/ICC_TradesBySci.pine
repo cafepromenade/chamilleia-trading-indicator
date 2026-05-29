@@ -1,0 +1,198 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0
+// © chamilleia-trading-indicator
+//
+// ICC — Indication · Correction · Continuation  ("Trades by Sci")
+// ----------------------------------------------------------------
+// A rules-based state machine that scans HTF structure, waits for a
+// liquidity grab, and executes on trend realignment.
+//
+//   Phase 0  Baseline Scan (HTF)  — swing High/Low via BODY CLOSES, define No-Trade Zone
+//   Phase 1  INDICATION           — HTF close breaks outside the zone → log Primary_Indication_Level
+//   Phase 2  CORRECTION           — LTF counter-trend pullback that breaks its own structure & realigns
+//   Phase 3  CONTINUATION         — price pushes back across the Indication Level → EXECUTE
+//                                   failure through Stop_Loss_Level → reset to Phase 1, opposite direction
+//
+// Timeframe hierarchy: HTF (4H overrides 1H) sets direction; chart TF (5M/15M) executes.
+// Session filter: London + New York only.
+//
+// ⚠️ This is an automated encoding of a discretionary plan, NOT a guaranteed profit system.
+//    HTF values use confirmed (closed) bars to reduce repainting. Backtest before live use.
+
+//@version=6
+strategy("ICC - Trades by Sci", shorttitle="ICC", overlay=true,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=10,
+     pyramiding=0, calc_on_every_tick=false,
+     commission_type=strategy.commission.percent, commission_value=0.02,
+     max_lines_count=500, max_labels_count=500, max_boxes_count=200)
+
+// ─────────────────────────── Inputs ───────────────────────────
+grpHTF   = "Higher Timeframe (Direction)"
+htfTf    = input.timeframe("240", "HTF (4H overrides 1H)", group=grpHTF)
+pivLen   = input.int(3, "HTF swing strength (pivot bars each side)", minval=1, group=grpHTF)
+
+grpLTF   = "Lower Timeframe (Execution)"
+ltfPiv   = input.int(2, "LTF structure pivot strength", minval=1, group=grpLTF)
+
+grpSess  = "Sessions (exchange time)"
+useSess  = input.bool(true, "Restrict to London + New York", group=grpSess)
+london   = input.session("0300-1200", "London session", group=grpSess)
+newyork  = input.session("0930-1600", "New York session", group=grpSess)
+
+grpRisk  = "Risk / Targets"
+rr       = input.float(3.0, "Take-profit risk:reward (fallback)", minval=0.5, step=0.5, group=grpRisk)
+scaleOut = input.float(80, "Scale-out % at first checkpoint", minval=10, maxval=100, group=grpRisk)
+useStruct= input.bool(true, "Target next HTF structural swing instead of pure RR", group=grpRisk)
+
+grpStyle = "Style"
+showZone = input.bool(true, "Draw No-Trade Zone", group=grpStyle)
+showLbls = input.bool(true, "Show phase labels", group=grpStyle)
+
+// ─────────────────────── HTF structure (body closes only) ───────────────────────
+f_htf() =>
+    ph = ta.pivothigh(close, pivLen, pivLen)   // close-based: ignores wicks
+    pl = ta.pivotlow(close, pivLen, pivLen)
+    var float sh  = na
+    var float sl  = na
+    var float psh = na   // previous swing high (historical target for sells)
+    var float psl = na   // previous swing low  (historical target for buys)
+    if not na(ph)
+        psh := sh
+        sh  := ph
+    if not na(pl)
+        psl := sl
+        sl  := pl
+    [sh, sl, psh, psl, close]
+
+[swingHigh, swingLow, prevSwingHigh, prevSwingLow, htfClose] =
+     request.security(syminfo.tickerid, htfTf, f_htf(), lookahead=barmerge.lookahead_off)
+
+inZoneDefined = not na(swingHigh) and not na(swingLow)
+
+// ─────────────────────── Session gate ───────────────────────
+inLondon = not na(time(timeframe.period, london))
+inNY     = not na(time(timeframe.period, newyork))
+inSession = not useSess or inLondon or inNY
+
+// All-Time-High exclusion: skip when no structural target exists above for buys.
+atAllTimeHigh = high >= ta.highest(high, 500)
+
+// ─────────────────────── LTF structure ───────────────────────
+ltfPH = ta.pivothigh(high, ltfPiv, ltfPiv)
+ltfPL = ta.pivotlow(low,  ltfPiv, ltfPiv)
+var float ltfLastHigh = na
+var float ltfLastLow  = na
+if not na(ltfPH)
+    ltfLastHigh := ltfPH
+if not na(ltfPL)
+    ltfLastLow := ltfPL
+
+// ─────────────────────── State machine ───────────────────────
+// phase: 0 baseline · 1 indication · 2 correction · 3 continuation(armed)
+var int   phase      = 0
+var int   dir        = 0          // 1 = long bias, -1 = short bias
+var float indication = na         // Primary_Indication_Level (structural breakout coordinate)
+var float stopLevel  = na         // Stop_Loss_Level (extreme of the correction)
+var float corrExtreme= na         // running pullback extreme
+var bool  realigned  = false      // LTF broke its own counter-structure back toward dir
+
+f_label(_y, _txt, _col, _up) =>
+    if showLbls
+        label.new(bar_index, _y, _txt, style=_up ? label.style_label_up : label.style_label_down,
+             color=_col, textcolor=color.white, size=size.small)
+
+// ── Phase 1: INDICATION — first HTF close outside the No-Trade Zone ──
+brokeUp = inZoneDefined and htfClose > swingHigh
+brokeDn = inZoneDefined and htfClose < swingLow
+
+if phase <= 1 and inZoneDefined
+    if brokeUp and dir != 1
+        phase      := 1
+        dir        := 1
+        indication := swingHigh
+        corrExtreme:= na
+        realigned  := false
+        f_label(low, "① INDICATION ▲", color.new(color.teal, 0), false)
+    else if brokeDn and dir != -1
+        phase      := 1
+        dir        := -1
+        indication := swingLow
+        corrExtreme:= na
+        realigned  := false
+        f_label(high, "① INDICATION ▼", color.new(color.red, 0), true)
+
+// ── Phase 2: CORRECTION — track pullback extreme, wait for LTF realignment ──
+if phase == 1
+    phase := 2
+
+if phase == 2
+    // track the absolute extreme of the counter-trend pullback
+    corrExtreme := na(corrExtreme) ? (dir == 1 ? low : high) : (dir == 1 ? math.min(corrExtreme, low) : math.max(corrExtreme, high))
+    // LTF breaks its own counter-structure back in the indicated direction
+    reUp = dir == 1 and not na(ltfLastHigh) and close > ltfLastHigh
+    reDn = dir == -1 and not na(ltfLastLow)  and close < ltfLastLow
+    if reUp or reDn
+        realigned := true
+        stopLevel := corrExtreme
+        phase     := 3
+        f_label(dir == 1 ? low : high, "② CORRECTION done → armed", color.new(color.orange, 0), dir == 1)
+
+// ── Phase 3: CONTINUATION — execute when price pushes back across the indication level ──
+longTrigger  = phase == 3 and dir == 1  and inSession and not atAllTimeHigh and close > indication
+shortTrigger = phase == 3 and dir == -1 and inSession and close < indication
+
+// structural targets
+longTP  = useStruct and not na(prevSwingHigh) and prevSwingHigh > close ? prevSwingHigh : na
+shortTP = useStruct and not na(prevSwingLow)  and prevSwingLow  < close ? prevSwingLow  : na
+
+if longTrigger and strategy.position_size == 0 and not na(stopLevel) and stopLevel < close
+    risk = close - stopLevel
+    tp   = na(longTP) ? close + risk * rr : longTP
+    strategy.entry("ICC Long", strategy.long)
+    strategy.exit("L-TP1", "ICC Long", stop=stopLevel, limit=tp, qty_percent=scaleOut)
+    strategy.exit("L-Run", "ICC Long", stop=stopLevel)   // runner trails on stop
+    f_label(low, "③ BUY", color.new(color.green, 0), true)
+
+if shortTrigger and strategy.position_size == 0 and not na(stopLevel) and stopLevel > close
+    risk = stopLevel - close
+    tp   = na(shortTP) ? close - risk * rr : shortTP
+    strategy.entry("ICC Short", strategy.short)
+    strategy.exit("S-TP1", "ICC Short", stop=stopLevel, limit=tp, qty_percent=scaleOut)
+    strategy.exit("S-Run", "ICC Short", stop=stopLevel)
+    f_label(high, "③ SELL", color.new(color.red, 0), false)
+
+// ── Failure / Shift of Gears: price runs through Stop_Loss_Level → reset to opposite Indication ──
+failLong  = phase == 3 and dir == 1  and not na(stopLevel) and close < stopLevel
+failShort = phase == 3 and dir == -1 and not na(stopLevel) and close > stopLevel
+if failLong or failShort
+    f_label(close, "⚡ SHIFT OF GEARS", color.new(color.fuchsia, 0), failLong)
+    dir        := failLong ? -1 : 1            // opposing structural break
+    indication := stopLevel                    // failure point becomes the new high-speed indication
+    corrExtreme:= na
+    realigned  := false
+    phase      := 2                            // immediately hunt the new correction
+
+// reset bias if HTF re-enters the zone (structure neutralised)
+if inZoneDefined and htfClose <= swingHigh and htfClose >= swingLow and strategy.position_size == 0
+    phase := 0
+    dir   := 0
+
+// ─────────────────────── Visuals ───────────────────────
+var box zoneBox = na
+if showZone and inZoneDefined
+    if na(zoneBox)
+        zoneBox := box.new(bar_index, swingHigh, bar_index + 1, swingLow, border_color=color.new(color.gray, 40), bgcolor=color.new(color.gray, 90))
+    box.set_top(zoneBox, swingHigh)
+    box.set_bottom(zoneBox, swingLow)
+    box.set_right(zoneBox, bar_index + 2)
+
+plot(indication, "Indication Level", color=na(indication) ? na : (dir == 1 ? color.teal : color.red), style=plot.style_linebr, linewidth=2)
+plot(stopLevel,  "Stop Level",       color=na(stopLevel) ? na : color.maroon, style=plot.style_linebr, linewidth=1)
+
+bgcolor(phase == 3 and dir == 1  ? color.new(color.green, 92) : phase == 3 and dir == -1 ? color.new(color.red, 92) : na, title="Armed")
+
+// ─────────────────────── Alerts ───────────────────────
+alertcondition(brokeUp,      "Indication Up",   "ICC: Bullish INDICATION — HTF closed above structure on {{ticker}}")
+alertcondition(brokeDn,      "Indication Down", "ICC: Bearish INDICATION — HTF closed below structure on {{ticker}}")
+alertcondition(longTrigger,  "Continuation Buy","ICC: BUY continuation on {{ticker}} {{interval}}")
+alertcondition(shortTrigger, "Continuation Sell","ICC: SELL continuation on {{ticker}} {{interval}}")
+alertcondition(failLong or failShort, "Shift of Gears", "ICC: Continuation failed — shifting to opposite indication on {{ticker}}")

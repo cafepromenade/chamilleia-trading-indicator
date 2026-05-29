@@ -28,12 +28,21 @@ high / second higher low*.
 5. (Optional) Right-click the indicator → **Settings** to tune pivot length, trend EMA, impulse strength, and styling.
 6. (Optional) Create alerts from the built-in `alertcondition`s.
 
+## Strategies in this repo
+1. **Chamilleia Supply & Demand** (Pine v5 indicator) — see above.
+2. **ICC — Indication · Correction · Continuation** ("Trades by Sci") — a Pine **v6
+   strategy** (backtestable + auto-alerts) that scans HTF structure, waits for a
+   liquidity grab, and executes on trend realignment via a 4-phase state machine.
+   See [`ICC_STRATEGY.md`](ICC_STRATEGY.md).
+
 ## Repo layout
 | Path | Description |
 |------|-------------|
-| [`indicator/ChamilleiaSupplyDemand.pine`](indicator/ChamilleiaSupplyDemand.pine) | The Pine Script v5 indicator. |
-| [`STRATEGY.md`](STRATEGY.md) | The full written strategy the indicator encodes. |
-| [`website/`](website/) | A landing site documenting the strategy & indicator. |
+| [`indicator/ChamilleiaSupplyDemand.pine`](indicator/ChamilleiaSupplyDemand.pine) | Chamilleia Supply & Demand — Pine v5 indicator. |
+| [`indicator/ICC_TradesBySci.pine`](indicator/ICC_TradesBySci.pine) | ICC — Pine v6 **strategy** (state machine, auto entries/exits). |
+| [`STRATEGY.md`](STRATEGY.md) | Chamilleia's full written strategy. |
+| [`ICC_STRATEGY.md`](ICC_STRATEGY.md) | The ICC rules the v6 strategy encodes. |
+| [`website/`](website/) | A landing site documenting the strategies. |
 
 ## Website
 A static site lives in [`website/`](website/). To view locally, open
