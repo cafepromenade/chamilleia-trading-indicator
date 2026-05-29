@@ -42,17 +42,17 @@ high / second higher low*.
 | [`indicator/ICC_TradesBySci.pine`](indicator/ICC_TradesBySci.pine) | ICC — Pine v6 **strategy** (state machine, auto entries/exits). |
 | [`STRATEGY.md`](STRATEGY.md) | Chamilleia's full written strategy. |
 | [`ICC_STRATEGY.md`](ICC_STRATEGY.md) | The ICC rules the v6 strategy encodes. |
-| [`website/`](website/) | A landing site documenting the strategies. |
+| [`docs/`](docs/) | The landing site (served live via GitHub Pages). |
 
 ## Website
-A static site lives in [`website/`](website/). To view locally, open
-`website/index.html` in a browser, or serve it:
+🌐 **Live site:** https://cafepromenade.github.io/chamilleia-trading-indicator/
+
+The static site lives in [`docs/`](docs/) and is published automatically via
+**GitHub Pages** (deploy from `main` branch, `/docs` folder) — every push that
+changes `docs/` republishes the site, no manual step. To preview locally:
 ```bash
-cd website && python -m http.server 8000
-# then open http://localhost:8000
+cd docs && python -m http.server 8000   # then open http://localhost:8000
 ```
-It can be published free via **GitHub Pages** (Settings → Pages → deploy from
-`main` / `website` folder).
 
 ## ⚠️ Disclaimer
 This is an educational tool that encodes a discretionary trading plan. It is
