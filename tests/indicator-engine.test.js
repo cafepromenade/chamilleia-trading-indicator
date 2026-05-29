@@ -443,6 +443,15 @@ function testWebsiteHasDramaticStatusFlash() {
   }
 }
 
+function testWebsiteChartShowsRiskLevels() {
+  for (const label of ["ENTRY", "STOP", "TP1", "TP2", "STRUCTURE"]) {
+    assert(statusCode.includes(label), `website chart should label ${label} risk level`);
+  }
+  assert(statusCode.includes("risk-level"), "website chart should draw risk level lines");
+  assert(statusCode.includes("risk.structureTarget"), "website chart should draw structural target level");
+  assert(styleCode.includes(".risk-level.target"), "website CSS should color target overlays");
+}
+
 function testWebsiteHasNoExampleOrAdClutter() {
   const publicText = [htmlCode, statusCode, styleCode].join("\n");
   for (const word of ["example", "sample", "demo", "mock", "fake", "advert", "sponsor"]) {
@@ -504,6 +513,7 @@ testWideZoneStopUsesEnteringCandleFallback();
 testLowerTimeframeOppositionBlocksEntry();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
+testWebsiteChartShowsRiskLevels();
 testWebsiteHasNoExampleOrAdClutter();
 testWebsiteUsesLiveMultiTimeframeDataOnly();
 testWebsiteSkipsMalformedLiveBars();

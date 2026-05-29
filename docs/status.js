@@ -169,14 +169,18 @@
     }).format(new Date(seconds * 1000));
   }
 
-  function renderLiveChart({ candles, result, productId }) {
+  function renderLiveChart({ candles, decision, productId }) {
+    const result = decision.execution;
+    const risk = decision.risk || {};
     const width = 900;
     const height = 460;
     const pad = { top: 58, right: 76, bottom: 52, left: 34 };
     const chartWidth = width - pad.left - pad.right;
     const chartHeight = height - pad.top - pad.bottom;
-    const lows = candles.map((candle) => candle.low);
-    const highs = candles.map((candle) => candle.high);
+    const visibleLevels = [risk.entry, risk.stop, risk.targetOne, risk.targetTwo, risk.structureTarget]
+      .filter((value) => Number.isFinite(value));
+    const lows = [...candles.map((candle) => candle.low), ...visibleLevels];
+    const highs = [...candles.map((candle) => candle.high), ...visibleLevels];
     const minLow = Math.min(...lows);
     const maxHigh = Math.max(...highs);
     const padding = (maxHigh - minLow) * 0.1 || 1;
@@ -200,6 +204,23 @@
         const yBot = yFor(zone.bot);
         const className = zone.isDemand ? "demand-rect" : "supply-rect";
         return `<rect class="${className}" x="${pad.left}" y="${Math.min(yTop, yBot)}" width="${chartWidth}" height="${Math.max(2, Math.abs(yBot - yTop))}" rx="5" />`;
+      })
+      .join("");
+
+    const riskMarkup = [
+      { label: "ENTRY", value: risk.entry, className: decision.className === "sell" ? "sell" : "buy" },
+      { label: "STOP", value: risk.stop, className: "stop" },
+      { label: "TP1", value: risk.targetOne, className: "target" },
+      { label: "TP2", value: risk.targetTwo, className: "target" },
+      { label: "STRUCTURE", value: risk.structureTarget, className: "structure" },
+    ]
+      .filter((level) => Number.isFinite(level.value))
+      .map((level) => {
+        const y = yFor(level.value);
+        return `
+          <line class="risk-level ${level.className}" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" />
+          <text class="risk-level-label ${level.className}" x="${pad.left + 8}" y="${y - 6}">${level.label} ${formatPrice(level.value)}</text>
+        `;
       })
       .join("");
 
@@ -248,6 +269,7 @@
       <text class="chart-title" x="${pad.left}" y="32">${productId} live 5-minute candlestick chart</text>
       ${gridMarkup}
       ${zoneMarkup}
+      ${riskMarkup}
       ${candleMarkup}
       <line class="last-price-line" x1="${pad.left}" y1="${lastY}" x2="${width - pad.right}" y2="${lastY}" />
       <text class="last-price-label" x="${width - pad.right + 10}" y="${lastY - 8}">${formatPrice(last.close)}</text>
@@ -373,7 +395,7 @@
 
     liveStatusBar.querySelector(".bar-market").textContent = productId;
     setEngineOutput(decision);
-    renderLiveChart({ candles: visibleCandles, result: decision.execution, productId });
+    renderLiveChart({ candles: visibleCandles, decision, productId });
     runnerCaption.textContent = `${productId} live 5-minute execution with Daily, 4H, 1H, 30M, and 15M top-down bias from ${source}. Last 5M candle: ${formatDateTime(lastCandle.time)}.`;
     const reclaimGate = decision.checklist.find((item) => item.label === "Primary indication reclaim");
     const noTradeZone = decision.checklist.find((item) => item.label === "No-trade zone");

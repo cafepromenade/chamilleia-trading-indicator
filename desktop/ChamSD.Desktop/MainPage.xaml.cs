@@ -329,8 +329,9 @@ public sealed partial class MainPage : Page
         const double padBottom = 42;
         var chartWidth = width - padLeft - padRight;
         var chartHeight = height - padTop - padBottom;
-        var low = _visibleCandles.Min(candle => candle.Low);
-        var high = _visibleCandles.Max(candle => candle.High);
+        var riskLevels = GetVisibleRiskLevels().ToList();
+        var low = Math.Min(_visibleCandles.Min(candle => candle.Low), riskLevels.Count > 0 ? riskLevels.Min(level => level.Price) : double.PositiveInfinity);
+        var high = Math.Max(_visibleCandles.Max(candle => candle.High), riskLevels.Count > 0 ? riskLevels.Max(level => level.Price) : double.NegativeInfinity);
         var padding = (high - low) * 0.1;
         var priceMin = low - (padding == 0 ? 1 : padding);
         var priceMax = high + (padding == 0 ? 1 : padding);
@@ -384,6 +385,11 @@ public sealed partial class MainPage : Page
                 Canvas.SetTop(rect, Math.Min(yTop, yBot));
                 ChartCanvas.Children.Add(rect);
             }
+
+            foreach (var level in riskLevels)
+            {
+                AddRiskLevel(level.Label, level.Price, YFor(level.Price), padLeft, width - padRight, level.Color);
+            }
         }
 
         for (var index = 0; index < _visibleCandles.Count; index++)
@@ -436,6 +442,56 @@ public sealed partial class MainPage : Page
             Opacity = 0.7,
         });
         AddText(FormatPrice(last.Close), width - padRight + 8, lastY - 24, 12, _chartTextBrush);
+    }
+
+    private IEnumerable<(string Label, double Price, uint Color)> GetVisibleRiskLevels()
+    {
+        if (_currentDecision is null)
+        {
+            yield break;
+        }
+
+        var risk = _currentDecision.Risk;
+        if (risk.Entry is double entry)
+        {
+            yield return ("ENTRY", entry, _currentDecision.ClassName == "sell" ? 0xFFFF5D5Du : 0xFF29C46Bu);
+        }
+
+        if (risk.Stop is double stop)
+        {
+            yield return ("STOP", stop, 0xFFFF5D5Du);
+        }
+
+        if (risk.TargetOne is double targetOne)
+        {
+            yield return ("TP1", targetOne, 0xFFF0B429u);
+        }
+
+        if (risk.TargetTwo is double targetTwo)
+        {
+            yield return ("TP2", targetTwo, 0xFFF0B429u);
+        }
+
+        if (risk.StructureTarget is double structureTarget)
+        {
+            yield return ("STRUCTURE", structureTarget, 0xFF8AB4FFu);
+        }
+    }
+
+    private void AddRiskLevel(string label, double price, double y, double left, double right, uint color)
+    {
+        ChartCanvas.Children.Add(new Line
+        {
+            X1 = left,
+            Y1 = y,
+            X2 = right,
+            Y2 = y,
+            Stroke = Brush(color),
+            StrokeThickness = 2,
+            StrokeDashArray = new DoubleCollection { 7, 6 },
+            Opacity = 0.86,
+        });
+        AddText($"{label} {FormatPrice(price)}", left + 8, y - 20, 12, Brush(color));
     }
 
     private void AddText(string text, double left, double top, double size, Brush brush)

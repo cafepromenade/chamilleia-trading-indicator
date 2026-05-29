@@ -678,6 +678,54 @@ h2 {
   stroke-width: 2;
 }
 
+.risk-level {
+  stroke-width: 2;
+  stroke-dasharray: 7 6;
+  opacity: 0.86;
+}
+
+.risk-level.buy {
+  stroke: var(--green);
+}
+
+.risk-level.sell,
+.risk-level.stop {
+  stroke: var(--red);
+}
+
+.risk-level.target {
+  stroke: var(--yellow);
+}
+
+.risk-level.structure {
+  stroke: var(--blue);
+}
+
+.risk-level-label {
+  font-size: 11px;
+  font-weight: 900;
+  paint-order: stroke;
+  stroke: #0d141f;
+  stroke-width: 4px;
+}
+
+.risk-level-label.buy {
+  fill: var(--green);
+}
+
+.risk-level-label.sell,
+.risk-level-label.stop {
+  fill: var(--red);
+}
+
+.risk-level-label.target {
+  fill: var(--yellow);
+}
+
+.risk-level-label.structure {
+  fill: var(--blue);
+}
+
 @keyframes status-slam {
   0% {
     transform: translateX(-18px) scale(0.98);

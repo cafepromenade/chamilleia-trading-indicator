@@ -17,6 +17,7 @@ tests.OpenCodeTestsFreeModelsUntilOneWorks();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
 tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
+tests.DesktopChartShowsRiskLevels();
 tests.DesktopWindowIsFixedSize();
 tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
 tests.DesktopUsesLiveMultiTimeframeDataOnly();
@@ -355,6 +356,18 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         foreach (var status in new[] { "\"buy\"", "\"sell\"", "\"caution\"", "\"no-trade\"" })
         {
             Assert(pageCode.Contains(status, StringComparison.Ordinal), $"desktop status theme should include {status}");
+        }
+    }
+
+    public void DesktopChartShowsRiskLevels()
+    {
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+
+        Assert(pageCode.Contains("GetVisibleRiskLevels()", StringComparison.Ordinal), "desktop chart should collect visible risk levels");
+        Assert(pageCode.Contains("AddRiskLevel(", StringComparison.Ordinal), "desktop chart should draw entry, stop, TP, and structure levels");
+        foreach (var label in new[] { "ENTRY", "STOP", "TP1", "TP2", "STRUCTURE" })
+        {
+            Assert(pageCode.Contains(label, StringComparison.Ordinal), $"desktop chart should label {label} risk level");
         }
     }
 
