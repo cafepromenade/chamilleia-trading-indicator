@@ -87,11 +87,11 @@ FINAL BOT READ: {fallbackFinalRead}
         if (opencodePath is null)
         {
             startInfo.ArgumentList.Add("run");
+            startInfo.ArgumentList.Add("Read the attached ChamSD live strategy prompt and answer in the required four GUI-card sections.");
             startInfo.ArgumentList.Add("-m");
             startInfo.ArgumentList.Add(model);
             startInfo.ArgumentList.Add("--file");
             startInfo.ArgumentList.Add(promptFile);
-            startInfo.ArgumentList.Add("Read the attached ChamSD live strategy prompt and answer in the required four GUI-card sections.");
         }
         else
         {
@@ -101,11 +101,11 @@ FINAL BOT READ: {fallbackFinalRead}
             startInfo.ArgumentList.Add("-File");
             startInfo.ArgumentList.Add(opencodePath);
             startInfo.ArgumentList.Add("run");
+            startInfo.ArgumentList.Add("Read the attached ChamSD live strategy prompt and answer in the required four GUI-card sections.");
             startInfo.ArgumentList.Add("-m");
             startInfo.ArgumentList.Add(model);
             startInfo.ArgumentList.Add("--file");
             startInfo.ArgumentList.Add(promptFile);
-            startInfo.ArgumentList.Add("Read the attached ChamSD live strategy prompt and answer in the required four GUI-card sections.");
         }
 
         try

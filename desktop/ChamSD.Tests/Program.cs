@@ -17,6 +17,7 @@ tests.OpenCodeTestsFreeModelsUntilOneWorks();
 tests.OpenCodeRejectsUnguiifiedOutputAndKeepsTrying();
 tests.OpenCodePromptCarriesBothDocumentMethods();
 tests.OpenCodePassesLongPromptByFile();
+tests.OpenCodePassesMessageBeforeAttachedPromptFile();
 tests.OpenCodeWorkingModelIsShownInPredictionHeader();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
 tests.PredictionParserKeepsGuiCardsFilled();
@@ -385,6 +386,17 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(thinkingCode.Contains("Read the attached ChamSD live strategy prompt", StringComparison.Ordinal), "OpenCode command-line message should stay short and point at the attached prompt");
         Assert(thinkingCode.Contains("TryDelete(promptFile)", StringComparison.Ordinal), "OpenCode prompt temp file should be cleaned up after each attempt");
         Assert(!thinkingCode.Contains("startInfo.ArgumentList.Add(prompt)", StringComparison.Ordinal), "OpenCode should not pass the full prompt directly on the command line");
+    }
+
+    public void OpenCodePassesMessageBeforeAttachedPromptFile()
+    {
+        var thinkingCode = ReadRepoFile("desktop/ChamSD.Desktop/OpenCodeThinkingService.cs");
+        var firstInstruction = thinkingCode.IndexOf("Read the attached ChamSD live strategy prompt", StringComparison.Ordinal);
+        var firstFileFlag = thinkingCode.IndexOf("startInfo.ArgumentList.Add(\"--file\")", StringComparison.Ordinal);
+
+        Assert(firstInstruction >= 0, "OpenCode command should include the short instruction message");
+        Assert(firstFileFlag >= 0, "OpenCode command should attach the prompt file");
+        Assert(firstInstruction < firstFileFlag, "OpenCode message must be before --file so the installed CLI does not treat it as another file path");
     }
 
     public void OpenCodeWorkingModelIsShownInPredictionHeader()
