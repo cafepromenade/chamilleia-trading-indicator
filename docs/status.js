@@ -208,7 +208,16 @@
   }
 
   function renderStrategyChecklist(items) {
+    const visibleGateLabels = new Set([
+      "ICC phase",
+      "4H/1H bias",
+      "Primary indication reclaim",
+      "Zone tap",
+      "Entry trigger",
+      "Invalidation",
+    ]);
     strategyChecklist.innerHTML = items
+      .filter((item) => visibleGateLabels.has(item.label))
       .map((item) => `
         <li class="${item.ok ? "ok" : "wait"}">
           <span>${item.ok ? "YES" : "WAIT"}</span>
@@ -316,15 +325,13 @@
     setEngineOutput(decision);
     renderLiveChart({ candles: visibleCandles, result: decision.execution, productId });
     runnerCaption.textContent = `${productId} live 5-minute execution with Daily, 4H, 1H, 30M, and 15M top-down bias from ${source}. Last 5M candle: ${formatDateTime(lastCandle.time)}.`;
+    const reclaimGate = decision.checklist.find((item) => item.label === "Primary indication reclaim");
     engineFacts.innerHTML = [
       renderFact("Market", productId),
       renderFact("Phase", decision.phase),
       renderFact("HTF bias", `${decision.bias.direction.toUpperCase()} (${decision.bias.source})`),
       renderFact("Confidence", `${decision.confidence}%`),
-      renderFact("Session", decision.sessionText),
-      renderFact("Daily", decision.d1Bias.reason),
-      renderFact("30M", decision.m30Bias.reason),
-      renderFact("15M", decision.m15Bias.reason),
+      renderFact("Gate", reclaimGate?.ok ? "RECLAIMED" : "WAIT"),
       renderFact("Last close", formatPrice(latest.close)),
       renderFact("Last candle", formatDateTime(lastCandle.time)),
     ].join("");

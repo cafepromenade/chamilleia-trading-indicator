@@ -361,6 +361,15 @@ main {
   margin-bottom: 0;
 }
 
+.dashboard-only .dashboard-top {
+  grid-template-columns: minmax(260px, 520px);
+  justify-content: end;
+}
+
+.dashboard-only #engine-output {
+  display: none;
+}
+
 section {
   padding: 4.5rem 0;
   border-bottom: 1px solid var(--line);
@@ -460,12 +469,13 @@ h2 {
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
   gap: 0.75rem;
   align-items: stretch;
+  height: 100%;
   min-height: 0;
 }
 
 .live-chart {
   position: relative;
-  min-height: clamp(340px, calc(100vh - 11rem), 720px);
+  min-height: 0;
   overflow: hidden;
   background: #0d141f;
 }
@@ -676,14 +686,17 @@ h2 {
 }
 
 .status-panel {
-  padding: 1rem;
-  max-height: calc(100vh - 9.2rem);
-  overflow: auto;
+  min-height: 0;
+  padding: 0.75rem;
+  overflow: hidden;
 }
 
 .engine-card {
   display: grid;
-  gap: 1rem;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  gap: 0.55rem;
 }
 
 .mini-label {
@@ -697,9 +710,29 @@ h2 {
 .status-output {
   display: grid;
   gap: 0.35rem;
-  padding: 1rem;
+  padding: 0.8rem;
   border-width: 2px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.dashboard-only .status-output {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.65rem 0.8rem;
+}
+
+.dashboard-only .status-output .status-title {
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+}
+
+.dashboard-only .status-output .status-reason {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-output.buy {
@@ -801,6 +834,46 @@ h2 {
   box-shadow: 0 0 20px rgba(138, 180, 255, 0.14);
 }
 
+.dashboard-only .market-controls {
+  grid-template-columns: minmax(145px, 1fr) minmax(92px, 0.6fr) minmax(150px, 1fr);
+  align-items: start;
+}
+
+.dashboard-only .market-select-label {
+  gap: 0;
+  font-size: 0;
+}
+
+.dashboard-only .market-select {
+  font-size: 0.9rem;
+}
+
+.dashboard-only .install-btn {
+  grid-column: 3 / 4;
+  grid-row: 1;
+  white-space: nowrap;
+}
+
+.dashboard-only .refresh-btn {
+  grid-column: 2 / 3;
+  grid-row: 1;
+}
+
+.dashboard-only .market-select-label {
+  grid-column: 1 / 2;
+  grid-row: 1;
+  align-self: start;
+  min-height: 40px;
+  margin-right: 0;
+}
+
+.dashboard-only .risk-note {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .install-btn:hover,
 .install-btn:focus-visible {
   border-color: var(--blue);
@@ -809,12 +882,12 @@ h2 {
 
 .engine-facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
 }
 
 .engine-facts div {
-  padding: 0.75rem;
+  padding: 0.55rem 0.65rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
@@ -830,39 +903,48 @@ h2 {
 .engine-facts dd {
   margin-top: 0.15rem;
   color: var(--ink);
+  overflow-wrap: anywhere;
   font-weight: 800;
 }
 
 .strategy-box {
   display: grid;
-  gap: 0.65rem;
-  padding: 1rem;
+  gap: 0.45rem;
+  padding: 0.7rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
+  min-height: 0;
+  overflow: hidden;
 }
 
+.dashboard-only .checklist-box {
+  display: none;
+}
+
+.strategy-box h2,
 .strategy-box h3 {
+  margin: 0;
   font-size: 1rem;
 }
 
 .strategy-checklist {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.38rem;
   list-style: none;
 }
 
 .strategy-checklist li {
   display: grid;
-  grid-template-columns: 3.2rem minmax(0, 1fr);
-  gap: 0.65rem;
+  grid-template-columns: 2.7rem minmax(0, 1fr);
+  gap: 0.5rem;
   align-items: start;
 }
 
 .strategy-checklist li > span {
   display: grid;
   place-items: center;
-  min-height: 30px;
+  min-height: 26px;
   border-radius: 6px;
   border: 1px solid var(--line);
   color: var(--yellow);
@@ -878,19 +960,27 @@ h2 {
 
 .strategy-checklist strong {
   display: block;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 .strategy-checklist p,
 .risk-note {
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.strategy-checklist p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .prediction-panel {
   display: grid;
-  gap: 0.7rem;
-  padding: 1rem;
+  gap: 0.5rem;
+  padding: 0.7rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
@@ -955,15 +1045,19 @@ h2 {
 .prediction-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.45rem;
 }
 
 .prediction-grid article {
-  min-height: 96px;
-  padding: 0.7rem;
+  min-height: 72px;
+  padding: 0.55rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   background: rgba(13, 20, 31, 0.52);
+}
+
+.dashboard-only .prediction-grid article:nth-child(n+3) {
+  display: none;
 }
 
 .prediction-grid span {
@@ -978,19 +1072,19 @@ h2 {
 
 .prediction-grid p {
   color: var(--ink);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   font-weight: 750;
-  line-height: 1.35;
+  line-height: 1.28;
 }
 
 .risk-plan {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
 }
 
 .risk-plan div {
-  padding: 0.65rem;
+  padding: 0.5rem;
   border: 1px solid var(--line);
   border-radius: 8px;
 }

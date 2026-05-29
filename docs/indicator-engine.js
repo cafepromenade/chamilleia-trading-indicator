@@ -535,13 +535,25 @@
     const bias = chooseBias(h4Bias, h1Bias);
     const latest = execution.latest;
     const session = getSessionContext(executionCandles[executionCandles.length - 1].time);
-    const alignedBuy = latest.buyTrigger && bias.direction === "bullish";
-    const alignedSell = latest.sellTrigger && bias.direction === "bearish";
-    const conflict = (latest.buyTrigger && bias.direction === "bearish") || (latest.sellTrigger && bias.direction === "bullish");
     const hasAlignedTap = Boolean(latest.lastTap && (
       (bias.direction === "bullish" && latest.lastTap.isDemand) ||
       (bias.direction === "bearish" && !latest.lastTap.isDemand)
     ));
+    const indicationLevel = bias.direction === "bullish"
+      ? h4Bias.indicationLevel ?? h1Bias.indicationLevel
+      : bias.direction === "bearish"
+        ? h4Bias.indicationLevel ?? h1Bias.indicationLevel
+        : null;
+    const continuationConfirmed = indicationLevel !== null && (
+      (bias.direction === "bullish" && latest.close > indicationLevel) ||
+      (bias.direction === "bearish" && latest.close < indicationLevel)
+    );
+    const rawAlignedBuy = latest.buyTrigger && bias.direction === "bullish";
+    const rawAlignedSell = latest.sellTrigger && bias.direction === "bearish";
+    const alignedBuy = rawAlignedBuy && continuationConfirmed;
+    const alignedSell = rawAlignedSell && continuationConfirmed;
+    const continuationBlocked = (rawAlignedBuy || rawAlignedSell) && !continuationConfirmed;
+    const conflict = (latest.buyTrigger && bias.direction === "bearish") || (latest.sellTrigger && bias.direction === "bullish");
     const rangeHigh = h1Bias.swingHigh ?? h4Bias.swingHigh;
     const rangeLow = h1Bias.swingLow ?? h4Bias.swingLow;
     const rangeSpan = rangeHigh !== null && rangeLow !== null ? Math.abs(rangeHigh - rangeLow) : null;
@@ -572,6 +584,11 @@
       note = exceptions.consolidation
         ? "Recent 5M price action is boxed in. Supply/demand trend rules are paused until structure breaks."
         : "Price is near the edge of available daily history, so there is no clean structural target.";
+    } else if (continuationBlocked) {
+      className = "wait";
+      label = bias.direction === "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
+      phase = "CONTINUATION GATE";
+      note = "Supply/demand trigger formed, but ICC needs price back across the Primary Indication Level before BUY/SELL.";
     } else if (alignedBuy) {
       className = "buy";
       label = latest.aPlusBuy ? "STATUS: A+ BUY" : "STATUS: BUY";
@@ -630,12 +647,6 @@
       ?? findStructureTarget(h4Candles, latest.close, bias.direction)
       ?? findStructureTarget(h1Candles, latest.close, bias.direction);
     const risk = calculateRiskPlan(latest, bias.direction, structureTarget);
-    const indicationLevel = bias.direction === "bullish"
-      ? h4Bias.indicationLevel ?? h1Bias.indicationLevel
-      : bias.direction === "bearish"
-        ? h4Bias.indicationLevel ?? h1Bias.indicationLevel
-        : null;
-
     return {
       label,
       note,
@@ -656,6 +667,7 @@
         { label: "Top-down story", ok: d1Bias.direction === "neutral" || d1Bias.direction === bias.direction || bias.direction === "neutral", text: `Daily ${d1Bias.direction}, 4H ${h4Bias.direction}, 1H ${h1Bias.direction}, 30M ${m30Bias.direction}, 15M ${m15Bias.direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.` },
         { label: "Trading session", ok: session.ok, text: session.text },
         { label: "4H/1H bias", ok: bias.direction !== "neutral", text: `${bias.reason} Indication level: ${indicationLevel ?? "-"}.` },
+        { label: "Primary indication reclaim", ok: continuationConfirmed || bias.direction === "neutral", text: indicationLevel === null ? "No Primary Indication Level yet. Wait for an HTF body-close breakout first." : continuationConfirmed ? `Price is back across ${indicationLevel} in the ${bias.direction} direction.` : `Price has not reclaimed ${indicationLevel}; no continuation entry yet.` },
         { label: "5M structure alignment", ok: (bias.direction === "bullish" && latest.bull) || (bias.direction === "bearish" && latest.bear), text: latest.bull ? "5M market structure is bullish. 5M BOS accepts wick or body breaks." : latest.bear ? "5M market structure is bearish. 5M BOS accepts wick or body breaks." : "5M has no clean market-structure direction." },
         { label: "Zone tap", ok: hasAlignedTap, text: hasAlignedTap ? "Price has tapped a live supply/demand zone aligned with HTF bias." : "Waiting for price to tap the newest valid zone in the HTF direction." },
         { label: "Newest zone only", ok: execution.zones.length <= 1, text: "Only the newest zone from the latest structure break is valid; older zones are ignored." },

@@ -29,12 +29,23 @@ public sealed class StrategyEngine
         var bias = ChooseBias(h4Bias, h1Bias);
         var session = GetSessionContext(executionCandles[^1].Time);
         var latest = execution.Latest;
-        var alignedBuy = latest.BuyTrigger && bias.Direction == "bullish";
-        var alignedSell = latest.SellTrigger && bias.Direction == "bearish";
-        var conflict = latest.BuyTrigger && bias.Direction == "bearish" || latest.SellTrigger && bias.Direction == "bullish";
         var hasAlignedTap = latest.LastTap is not null && (
             bias.Direction == "bullish" && latest.LastTap.IsDemand ||
             bias.Direction == "bearish" && !latest.LastTap.IsDemand);
+        var indicationLevel = bias.Direction == "bullish"
+            ? h4Bias.IndicationLevel ?? h1Bias.IndicationLevel
+            : bias.Direction == "bearish"
+                ? h4Bias.IndicationLevel ?? h1Bias.IndicationLevel
+                : null;
+        var continuationConfirmed = indicationLevel is not null && (
+            bias.Direction == "bullish" && latest.Close > indicationLevel.Value ||
+            bias.Direction == "bearish" && latest.Close < indicationLevel.Value);
+        var rawAlignedBuy = latest.BuyTrigger && bias.Direction == "bullish";
+        var rawAlignedSell = latest.SellTrigger && bias.Direction == "bearish";
+        var alignedBuy = rawAlignedBuy && continuationConfirmed;
+        var alignedSell = rawAlignedSell && continuationConfirmed;
+        var continuationBlocked = (rawAlignedBuy || rawAlignedSell) && !continuationConfirmed;
+        var conflict = latest.BuyTrigger && bias.Direction == "bearish" || latest.SellTrigger && bias.Direction == "bullish";
         var rangeHigh = h1Bias.SwingHigh ?? h4Bias.SwingHigh;
         var rangeLow = h1Bias.SwingLow ?? h4Bias.SwingLow;
         var rangeSpan = rangeHigh is not null && rangeLow is not null ? Math.Abs(rangeHigh.Value - rangeLow.Value) : (double?)null;
@@ -68,6 +79,13 @@ public sealed class StrategyEngine
             note = exceptions.Consolidation
                 ? "Recent 5M price action is boxed in. Supply/demand trend rules are paused until structure breaks."
                 : "Price is near the edge of available daily history, so there is no clean structural target.";
+        }
+        else if (continuationBlocked)
+        {
+            className = "wait";
+            label = bias.Direction == "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
+            phase = "CONTINUATION GATE";
+            note = "Supply/demand trigger formed, but ICC needs price back across the Primary Indication Level before BUY/SELL.";
         }
         else if (alignedBuy)
         {
@@ -138,12 +156,6 @@ public sealed class StrategyEngine
         if (conflict) confidence = Math.Min(confidence, 25);
         confidence = Math.Clamp(confidence, 0, 100);
 
-        var indicationLevel = bias.Direction == "bullish"
-            ? h4Bias.IndicationLevel ?? h1Bias.IndicationLevel
-            : bias.Direction == "bearish"
-                ? h4Bias.IndicationLevel ?? h1Bias.IndicationLevel
-                : null;
-
         var structureTarget = FindStructureTarget(d1Candles, latest.Close, bias.Direction)
             ?? FindStructureTarget(h4Candles, latest.Close, bias.Direction)
             ?? FindStructureTarget(h1Candles, latest.Close, bias.Direction);
@@ -176,6 +188,14 @@ public sealed class StrategyEngine
                 },
                 new ChecklistItem { Label = "Trading session", Ok = session.Ok, Text = session.Text },
                 new ChecklistItem { Label = "4H/1H bias", Ok = bias.Direction != "neutral", Text = $"{bias.Reason} Indication level: {FormatNullable(indicationLevel)}." },
+                new ChecklistItem
+                {
+                    Label = "Primary indication reclaim",
+                    Ok = continuationConfirmed || bias.Direction == "neutral",
+                    Text = indicationLevel is null
+                        ? "No Primary Indication Level yet. Wait for an HTF body-close breakout first."
+                        : continuationConfirmed ? $"Price is back across {FormatNullable(indicationLevel)} in the {bias.Direction} direction." : $"Price has not reclaimed {FormatNullable(indicationLevel)}; no continuation entry yet.",
+                },
                 new ChecklistItem
                 {
                     Label = "5M structure alignment",
