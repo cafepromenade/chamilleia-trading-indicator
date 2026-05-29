@@ -6,6 +6,7 @@ tests.FailedDemandWaitsForSecondHigherLowReset();
 tests.KeepsOnlyNewestZone();
 tests.RangeFallbackUsesStrictOneToOneRisk();
 tests.APlusRequiresWickOnlyZoneTap();
+tests.CounterTrendNeedsStrongFullBodyBreakAndStrictRisk();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
@@ -129,6 +130,38 @@ internal sealed class DesktopStrategyTests
         Assert(bodyInZoneDecision.Execution.Latest.BuyTrigger, "body-in-zone fixture should still be a normal buy trigger");
         Assert(!bodyInZoneDecision.Execution.Latest.APlusBuy, "body entering the zone must block A+ buy");
         Assert(bodyInZoneDecision.Execution.Latest.LastTap?.WickOnlyNoBodyInZone == false, "body-in-zone tap should record that it is not A+ clean");
+    }
+
+    public void CounterTrendNeedsStrongFullBodyBreakAndStrictRisk()
+    {
+        var bullish = HtfBullish();
+        var bearishDaily = HtfBearish();
+        var weakCounterTrend = _engine.CalculateStrategyDecision(
+            ExecutionWithCounterTrendBreak(isStrongFullBody: false),
+            bullish,
+            bullish,
+            bullish,
+            bullish,
+            bearishDaily);
+        var strongCounterTrend = _engine.CalculateStrategyDecision(
+            ExecutionWithCounterTrendBreak(isStrongFullBody: true),
+            bullish,
+            bullish,
+            bullish,
+            bullish,
+            bearishDaily);
+        var weakCounterChecklist = Checklist(weakCounterTrend, "Counter trend-line break");
+        var strongCounterChecklist = Checklist(strongCounterTrend, "Counter trend-line break");
+
+        Assert(weakCounterTrend.Phase == "COUNTER-TREND GATE", "Daily-opposite setup should wait if the break is not full-body strong");
+        Assert(weakCounterTrend.Label == "STATUS: WAIT FOR BUY", "weak counter-trend break must not become BUY");
+        Assert(!weakCounterChecklist.Ok, "weak counter-trend break should fail the counter checklist");
+        Assert(strongCounterTrend.Label == "STATUS: A+ BUY", "strong full-body counter-trend break may continue to the live status");
+        Assert(strongCounterChecklist.Ok, "strong full-body counter break should pass");
+        Assert(strongCounterTrend.Risk.EntryMode == "COUNTER-TREND STRICT 1:1", "counter-trend exception must use strict 1:1 entry mode");
+        Assert(strongCounterTrend.Risk.ScaleOut == "100% at 1:1", "counter-trend exception must fully exit at 1:1");
+        Assert(strongCounterTrend.Risk.TargetTwo is null, "counter-trend exception must not create a runner target");
+        Assert(strongCounterTrend.Risk.Text.Contains("no runner", StringComparison.OrdinalIgnoreCase), "counter-trend risk text must say no runner");
     }
 
     public void OpenCodeUsesOnlyFreeModelLadder()
@@ -320,6 +353,15 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         return bars;
     }
 
+    private static List<MarketCandle> ExecutionWithCounterTrendBreak(bool isStrongFullBody)
+    {
+        var bars = ExecutionWithZoneTap(tapIsWickOnly: true);
+        bars[^1] = isStrongFullBody
+            ? Candle(29, 103.1, 107, 103, 106)
+            : Candle(29, 100, 107, 99.8, 106);
+        return bars;
+    }
+
     private static List<MarketCandle> RangingMarketAtSupport()
     {
         var bars = new List<MarketCandle>();
@@ -370,6 +412,21 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
             Candle(37, 98, 99, 97, 98),
             Candle(38, 96, 97, 95, 96),
             Candle(39, 100, 106, 99, 105),
+        });
+        return bars;
+    }
+
+    private static List<MarketCandle> HtfBearish()
+    {
+        var bars = Filler(34, 112);
+        bars.AddRange(new[]
+        {
+            Candle(34, 103, 116, 99, 100),
+            Candle(35, 102, 114, 101, 102),
+            Candle(36, 104, 115, 103, 104),
+            Candle(37, 102, 113, 101, 102),
+            Candle(38, 104, 115, 103, 104),
+            Candle(39, 100, 110, 94, 95),
         });
         return bars;
     }

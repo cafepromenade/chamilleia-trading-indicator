@@ -42,8 +42,6 @@ public sealed class StrategyEngine
             bias.Direction == "bearish" && latest.Close < indicationLevel.Value);
         var rawAlignedBuy = latest.BuyTrigger && bias.Direction == "bullish";
         var rawAlignedSell = latest.SellTrigger && bias.Direction == "bearish";
-        var alignedBuy = rawAlignedBuy && continuationConfirmed;
-        var alignedSell = rawAlignedSell && continuationConfirmed;
         var continuationBlocked = (rawAlignedBuy || rawAlignedSell) && !continuationConfirmed;
         var conflict = latest.BuyTrigger && bias.Direction == "bearish" || latest.SellTrigger && bias.Direction == "bullish";
         var rangeHigh = h1Bias.SwingHigh ?? h4Bias.SwingHigh;
@@ -56,6 +54,10 @@ public sealed class StrategyEngine
         var newestZone = execution.Zones.FirstOrDefault();
         var newestZoneInvalidated = newestZone?.Invalidated == true;
         var exceptions = AnalyzeExceptions(executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone);
+        var counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && exceptions.CounterTrend && !exceptions.CounterBreakReady;
+        var counterTrendStrictRisk = exceptions.CounterTrend && exceptions.CounterBreakReady;
+        var alignedBuy = rawAlignedBuy && continuationConfirmed && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
+        var alignedSell = rawAlignedSell && continuationConfirmed && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
 
         var className = "wait";
         var label = "STATUS: WAIT";
@@ -86,6 +88,13 @@ public sealed class StrategyEngine
             label = bias.Direction == "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
             phase = "CONTINUATION GATE";
             note = "Supply/demand trigger formed, but ICC needs price back across the Primary Indication Level before BUY/SELL.";
+        }
+        else if (counterTrendBlocked)
+        {
+            className = "caution";
+            label = bias.Direction == "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
+            phase = "COUNTER-TREND GATE";
+            note = "Daily context is opposite this idea. Wait for a strong full-body break, then use strict 1:1 only.";
         }
         else if (alignedBuy)
         {
@@ -160,7 +169,7 @@ public sealed class StrategyEngine
             ?? FindStructureTarget(h4Candles, latest.Close, bias.Direction)
             ?? FindStructureTarget(h1Candles, latest.Close, bias.Direction);
         var rangePlan = CalculateRangeRiskPlan(latest, rangeLow, rangeHigh, nearSupport, nearResistance, rangeBuffer);
-        var riskPlan = CalculateRiskPlan(latest, bias.Direction, structureTarget, rangePlan);
+        var riskPlan = CalculateRiskPlan(latest, bias.Direction, structureTarget, rangePlan, counterTrendStrictRisk);
 
         return new StrategyDecision
         {
@@ -273,7 +282,7 @@ public sealed class StrategyEngine
                     Label = "Counter trend-line break",
                     Ok = !exceptions.CounterTrend || exceptions.CounterBreakReady,
                     Text = exceptions.CounterTrend
-                        ? exceptions.CounterBreakReady ? "Counter-trend idea has a full structure break in the active direction; keep target strict 1:1." : "Daily context is opposite the active bias. Need a strong body-close break before any counter-trend idea."
+                        ? exceptions.CounterBreakReady ? "Counter-trend idea has a strong full-body break in the active direction; keep target strict 1:1." : "Daily context is opposite the active bias. Need a strong full-body break before any counter-trend idea."
                         : "Not a counter-trend setup against Daily context.",
                 },
             },
@@ -554,7 +563,7 @@ public sealed class StrategyEngine
         };
     }
 
-    private static RiskPlan CalculateRiskPlan(ChamilleiaLatest latest, string direction, double? structureTarget, RiskPlan? rangePlan = null)
+    private static RiskPlan CalculateRiskPlan(ChamilleiaLatest latest, string direction, double? structureTarget, RiskPlan? rangePlan = null, bool strictOneToOne = false)
     {
         if (rangePlan is not null)
         {
@@ -595,13 +604,31 @@ public sealed class StrategyEngine
         var stopText = stopWithinLimit
             ? "Stop size is inside the 50-point guide."
             : "Stop is larger than the 50-point guide; use the entering candle or skip.";
+        var targetOne = direction == "bullish" ? entry + risk : entry - risk;
+
+        if (strictOneToOne)
+        {
+            return new RiskPlan
+            {
+                Entry = Round(entry),
+                Stop = Round(stop),
+                Risk = Round(risk),
+                TargetOne = Round(targetOne),
+                TargetTwo = null,
+                StructureTarget = null,
+                EntryMode = "COUNTER-TREND STRICT 1:1",
+                ScaleOut = "100% at 1:1",
+                StopWithinLimit = stopWithinLimit,
+                Text = $"Counter-trend exception only: strong full-body break confirmed against Daily context. Take strict 1:1 only, no runner. {stopText}",
+            };
+        }
 
         return new RiskPlan
         {
             Entry = Round(entry),
             Stop = Round(stop),
             Risk = Round(risk),
-            TargetOne = Round(direction == "bullish" ? entry + risk : entry - risk),
+            TargetOne = Round(targetOne),
             TargetTwo = Round(direction == "bullish" ? entry + risk * 2 : entry - risk * 2),
             StructureTarget = Round(structureTarget),
             EntryMode = "AGGRESSIVE / CONSERVATIVE / BREAK OF CANDLE",
@@ -712,6 +739,21 @@ public sealed class StrategyEngine
         return (false, "No valid minor-BOS reset direction is available yet.");
     }
 
+    private static bool HasStrongFullBodyBreak(IReadOnlyList<MarketCandle> candles, string direction, ChamilleiaLatest latest)
+    {
+        var breaker = candles[^1];
+        var recent = candles.TakeLast(12).ToList();
+        var avgBody = recent.Average(candle => Math.Abs(candle.Close - candle.Open));
+        var bodySize = Math.Abs(breaker.Close - breaker.Open);
+        var strongBody = avgBody == 0 || bodySize >= avgBody * 1.1;
+        return direction switch
+        {
+            "bullish" => latest.LastSwingHigh is not null && Math.Min(breaker.Open, breaker.Close) > latest.LastSwingHigh && strongBody,
+            "bearish" => latest.LastSwingLow is not null && Math.Max(breaker.Open, breaker.Close) < latest.LastSwingLow && strongBody,
+            _ => false,
+        };
+    }
+
     private static ExceptionRead AnalyzeExceptions(
         IReadOnlyList<MarketCandle> executionCandles,
         IReadOnlyList<MarketCandle> d1Candles,
@@ -742,9 +784,10 @@ public sealed class StrategyEngine
             bias.Direction == "bullish" && m15Bias.Direction != "bearish" ||
             bias.Direction == "bearish" && m15Bias.Direction != "bullish");
         var counterTrend = d1Bias.Direction != "neutral" && bias.Direction != "neutral" && d1Bias.Direction != bias.Direction;
+        var strongFullBodyBreak = HasStrongFullBodyBreak(executionCandles, bias.Direction, latest);
         var counterBreakReady = counterTrend && (
-            bias.Direction == "bullish" && latest.Bull && m15Bias.Direction == "bullish" ||
-            bias.Direction == "bearish" && latest.Bear && m15Bias.Direction == "bearish");
+            bias.Direction == "bullish" && latest.Bull && m15Bias.Direction == "bullish" && strongFullBodyBreak ||
+            bias.Direction == "bearish" && latest.Bear && m15Bias.Direction == "bearish" && strongFullBodyBreak);
         var bullishFailedThroughStop = newestZoneInvalidated && newestZone?.IsDemand == true && bias.Direction == "bullish" && latest.Bear && latest.Close < newestZone.Bot;
         var bearishFailedThroughStop = newestZoneInvalidated && newestZone?.IsDemand == false && bias.Direction == "bearish" && latest.Bull && latest.Close > newestZone.Top;
         var shiftOfGears = aggressiveFailure && (bullishFailedThroughStop || bearishFailedThroughStop);
@@ -759,6 +802,7 @@ public sealed class StrategyEngine
             minorReset.Text,
             counterTrend,
             counterBreakReady,
+            strongFullBodyBreak,
             shiftOfGears,
             shiftDirection);
     }
@@ -952,6 +996,7 @@ public sealed class StrategyEngine
         string MinorResetText,
         bool CounterTrend,
         bool CounterBreakReady,
+        bool StrongFullBodyBreak,
         bool ShiftOfGears,
         string ShiftDirection);
 

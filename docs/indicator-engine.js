@@ -428,7 +428,7 @@
     };
   }
 
-  function calculateRiskPlan(latest, direction, structureTarget, rangePlan = null) {
+  function calculateRiskPlan(latest, direction, structureTarget, rangePlan = null, options = {}) {
     if (rangePlan) {
       return rangePlan;
     }
@@ -477,6 +477,21 @@
       ? "Stop size is inside the 50-point guide."
       : "Stop is larger than the 50-point guide; use the entering candle or skip.";
     const targetOne = direction === "bullish" ? entry + risk : entry - risk;
+    if (options.strictOneToOne) {
+      return {
+        entry: round(entry),
+        stop: round(stop),
+        risk: round(risk),
+        targetOne: round(targetOne),
+        targetTwo: null,
+        structureTarget: null,
+        entryMode: "COUNTER-TREND STRICT 1:1",
+        scaleOut: "100% at 1:1",
+        stopWithinLimit,
+        text: `Counter-trend exception only: strong full-body break confirmed against Daily context. Take strict 1:1 only, no runner. ${stopText}`,
+      };
+    }
+
     const targetTwo = direction === "bullish" ? entry + risk * 2 : entry - risk * 2;
     return {
       entry: round(entry),
@@ -577,6 +592,21 @@
     };
   }
 
+  function hasStrongFullBodyBreak(candles, direction, latest) {
+    const breaker = candles[candles.length - 1];
+    const recent = candles.slice(-12);
+    const avgBody = recent.reduce((sum, candle) => sum + Math.abs(candle.close - candle.open), 0) / Math.max(1, recent.length);
+    const bodySize = Math.abs(breaker.close - breaker.open);
+    const strongBody = avgBody === 0 || bodySize >= avgBody * 1.1;
+    if (direction === "bullish") {
+      return Boolean(latest.lastSwingHigh !== null && Math.min(breaker.open, breaker.close) > latest.lastSwingHigh && strongBody);
+    }
+    if (direction === "bearish") {
+      return Boolean(latest.lastSwingLow !== null && Math.max(breaker.open, breaker.close) < latest.lastSwingLow && strongBody);
+    }
+    return false;
+  }
+
   function analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone }) {
     const recent = executionCandles.slice(-24);
     const recentHigh = Math.max(...recent.map((candle) => candle.high));
@@ -600,9 +630,10 @@
       (bias.direction === "bearish" && m15Bias.direction !== "bullish")
     );
     const counterTrend = d1Bias.direction !== "neutral" && bias.direction !== "neutral" && d1Bias.direction !== bias.direction;
+    const strongFullBodyBreak = hasStrongFullBodyBreak(executionCandles, bias.direction, latest);
     const counterBreakReady = counterTrend && (
-      (bias.direction === "bullish" && latest.bull && m15Bias.direction === "bullish") ||
-      (bias.direction === "bearish" && latest.bear && m15Bias.direction === "bearish")
+      (bias.direction === "bullish" && latest.bull && m15Bias.direction === "bullish" && strongFullBodyBreak) ||
+      (bias.direction === "bearish" && latest.bear && m15Bias.direction === "bearish" && strongFullBodyBreak)
     );
     const bullishFailedThroughStop = newestZoneInvalidated && newestZone?.isDemand && bias.direction === "bullish" && latest.bear && latest.close < newestZone.bot;
     const bearishFailedThroughStop = newestZoneInvalidated && newestZone && !newestZone.isDemand && bias.direction === "bearish" && latest.bull && latest.close > newestZone.top;
@@ -618,6 +649,7 @@
       minorResetText: minorReset.text,
       counterTrend,
       counterBreakReady,
+      strongFullBodyBreak,
       shiftOfGears,
       shiftDirection,
     };
@@ -648,8 +680,6 @@
     );
     const rawAlignedBuy = latest.buyTrigger && bias.direction === "bullish";
     const rawAlignedSell = latest.sellTrigger && bias.direction === "bearish";
-    const alignedBuy = rawAlignedBuy && continuationConfirmed;
-    const alignedSell = rawAlignedSell && continuationConfirmed;
     const continuationBlocked = (rawAlignedBuy || rawAlignedSell) && !continuationConfirmed;
     const conflict = (latest.buyTrigger && bias.direction === "bearish") || (latest.sellTrigger && bias.direction === "bullish");
     const rangeHigh = h1Bias.swingHigh ?? h4Bias.swingHigh;
@@ -662,6 +692,10 @@
     const newestZone = execution.zones[0] || null;
     const newestZoneInvalidated = Boolean(newestZone?.invalidated);
     const exceptions = analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone });
+    const counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && exceptions.counterTrend && !exceptions.counterBreakReady;
+    const counterTrendStrictRisk = exceptions.counterTrend && exceptions.counterBreakReady;
+    const alignedBuy = rawAlignedBuy && continuationConfirmed && (!exceptions.counterTrend || exceptions.counterBreakReady);
+    const alignedSell = rawAlignedSell && continuationConfirmed && (!exceptions.counterTrend || exceptions.counterBreakReady);
 
     let className = "wait";
     let label = "STATUS: WAIT";
@@ -687,6 +721,11 @@
       label = bias.direction === "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
       phase = "CONTINUATION GATE";
       note = "Supply/demand trigger formed, but ICC needs price back across the Primary Indication Level before BUY/SELL.";
+    } else if (counterTrendBlocked) {
+      className = "caution";
+      label = bias.direction === "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
+      phase = "COUNTER-TREND GATE";
+      note = "Daily context is opposite this idea. Wait for a strong full-body break, then use strict 1:1 only.";
     } else if (alignedBuy) {
       className = "buy";
       label = latest.aPlusBuy ? "STATUS: A+ BUY" : "STATUS: BUY";
@@ -745,7 +784,7 @@
       ?? findStructureTarget(h4Candles, latest.close, bias.direction)
       ?? findStructureTarget(h1Candles, latest.close, bias.direction);
     const rangePlan = calculateRangeRiskPlan(latest, rangeLow, rangeHigh, nearSupport, nearResistance, rangeBuffer);
-    const risk = calculateRiskPlan(latest, bias.direction, structureTarget, rangePlan);
+    const risk = calculateRiskPlan(latest, bias.direction, structureTarget, rangePlan, { strictOneToOne: counterTrendStrictRisk });
     return {
       label,
       note,
@@ -778,7 +817,7 @@
         { label: "Shift of gears", ok: !exceptions.shiftOfGears, text: exceptions.shiftOfGears ? `Continuation failed aggressively through the stop/pullback extreme. Treat this as a fresh ${exceptions.shiftDirection} indication, not an immediate trade.` : "No failed continuation has crossed the stop/pullback extreme." },
         { label: "Range fallback", ok: nearSupport || nearResistance || !rangeFallback, text: rangeFallback ? `Range floor ${rangeLow}, ceiling ${rangeHigh}. ${nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait."}` : "Not using support/resistance fallback while HTF bias is active." },
         { label: "Consolidation/ATH filter", ok: !exceptions.consolidation && !exceptions.noHistoricalTarget, text: exceptions.consolidation ? "Random consolidation detected from recent 5M compression. Abort trend scanning until price escapes." : exceptions.noHistoricalTarget ? `Near available daily-history edge (${exceptions.historyLow}-${exceptions.historyHigh}); skip if there is no clean structural target.` : "Not boxed in and not at the available daily-history edge." },
-        { label: "Counter trend-line break", ok: !exceptions.counterTrend || exceptions.counterBreakReady, text: exceptions.counterTrend ? (exceptions.counterBreakReady ? "Counter-trend idea has a full structure break in the active direction; keep target strict 1:1." : "Daily context is opposite the active bias. Need a strong body-close break before any counter-trend idea.") : "Not a counter-trend setup against Daily context." },
+        { label: "Counter trend-line break", ok: !exceptions.counterTrend || exceptions.counterBreakReady, text: exceptions.counterTrend ? (exceptions.counterBreakReady ? "Counter-trend idea has a strong full-body break in the active direction; keep target strict 1:1." : "Daily context is opposite the active bias. Need a strong full-body break before any counter-trend idea.") : "Not a counter-trend setup against Daily context." },
       ],
       risk,
     };

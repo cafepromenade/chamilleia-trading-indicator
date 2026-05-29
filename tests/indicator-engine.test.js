@@ -43,6 +43,19 @@ function htfBullish() {
   return bars;
 }
 
+function htfBearish() {
+  const bars = filler(34, 112);
+  bars.push(
+    candle(34, 103, 116, 99, 100),
+    candle(35, 102, 114, 101, 102),
+    candle(36, 104, 115, 103, 104),
+    candle(37, 102, 113, 101, 102),
+    candle(38, 104, 115, 103, 104),
+    candle(39, 100, 110, 94, 95),
+  );
+  return bars;
+}
+
 function decisionForExecution(executionCandles) {
   const bullish = htfBullish();
   return engine.calculateStrategyDecision({
@@ -82,6 +95,14 @@ function executionWithZoneTap(tapIsWickOnly) {
       : candle(28, 96.2, 103, 94.5, 96.5),
     candle(29, 103.1, 107, 103, 106),
   );
+  return bars;
+}
+
+function executionWithCounterTrendBreak(isStrongFullBody) {
+  const bars = executionWithZoneTap(true);
+  bars[bars.length - 1] = isStrongFullBody
+    ? candle(29, 103.1, 107, 103, 106)
+    : candle(29, 100, 107, 99.8, 106);
   return bars;
 }
 
@@ -225,6 +246,41 @@ function testAPlusRequiresWickOnlyZoneTap() {
   assert.strictEqual(bodyInZoneDecision.execution.latest.lastTap.wickOnlyNoBodyInZone, false, "body-in-zone tap should record that it is not A+ clean");
 }
 
+function testCounterTrendNeedsStrongFullBodyBreakAndStrictRisk() {
+  const bullish = htfBullish();
+  const bearishDaily = htfBearish();
+  const weakCounterTrend = engine.calculateStrategyDecision({
+    executionCandles: executionWithCounterTrendBreak(false),
+    m15Candles: bullish,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles: bearishDaily,
+  });
+  const strongCounterTrend = engine.calculateStrategyDecision({
+    executionCandles: executionWithCounterTrendBreak(true),
+    m15Candles: bullish,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles: bearishDaily,
+  });
+  const weakCounterChecklist = weakCounterTrend.checklist.find((item) => item.label === "Counter trend-line break");
+  const strongCounterChecklist = strongCounterTrend.checklist.find((item) => item.label === "Counter trend-line break");
+
+  assert(weakCounterChecklist, "counter trend-line checklist item should exist");
+  assert(strongCounterChecklist, "counter trend-line checklist item should exist");
+  assert.strictEqual(weakCounterTrend.phase, "COUNTER-TREND GATE", "Daily-opposite setup should wait if the break is not full-body strong");
+  assert.strictEqual(weakCounterTrend.label, "STATUS: WAIT FOR BUY", "weak counter-trend break must not become BUY");
+  assert.strictEqual(weakCounterChecklist.ok, false, "weak counter-trend break should fail the counter checklist");
+  assert.strictEqual(strongCounterTrend.label, "STATUS: A+ BUY", "strong full-body counter-trend break may continue to the live status");
+  assert.strictEqual(strongCounterChecklist.ok, true, "strong full-body counter break should pass");
+  assert.strictEqual(strongCounterTrend.risk.entryMode, "COUNTER-TREND STRICT 1:1", "counter-trend exception must use strict 1:1 entry mode");
+  assert.strictEqual(strongCounterTrend.risk.scaleOut, "100% at 1:1", "counter-trend exception must fully exit at 1:1");
+  assert.strictEqual(strongCounterTrend.risk.targetTwo, null, "counter-trend exception must not create a runner target");
+  assert(strongCounterTrend.risk.text.includes("no runner"), "counter-trend risk text must say no runner");
+}
+
 function testPineIndicatorIsPriceActionOnly() {
   assert(!/ta\.ema|useEmaTrend|Trend EMA/i.test(pineCode), "Pine indicator must not use EMA trend filtering");
   assert(/array\.size\(zones\) > 1/.test(pineCode), "Pine indicator should keep only the newest zone");
@@ -286,6 +342,7 @@ testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
 testRangeFallbackUsesStrictOneToOneRisk();
 testAPlusRequiresWickOnlyZoneTap();
+testCounterTrendNeedsStrongFullBodyBreakAndStrictRisk();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();
