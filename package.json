@@ -1,5 +1,9 @@
 {
   "scripts": {
-    "test": "node tests/indicator-engine.test.js"
+    "test": "node tests/indicator-engine.test.js",
+    "test:visual": "node tests/visual-audit.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
   }
 }

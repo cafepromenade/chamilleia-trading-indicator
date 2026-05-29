@@ -874,14 +874,17 @@ h2 {
 .status-panel {
   min-height: 0;
   padding: 0.75rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: rgba(246, 196, 81, 0.68) rgba(255, 255, 255, 0.06);
+  scrollbar-width: thin;
 }
 
 .engine-card {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  height: 100%;
-  min-height: 0;
+  min-height: 100%;
+  height: max-content;
   gap: 0.55rem;
 }
 

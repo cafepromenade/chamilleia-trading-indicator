@@ -40,9 +40,17 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install Node dependencies
+        shell: pwsh
+        run: npm ci
+
       - name: Test website strategy engine
         shell: pwsh
         run: npm test
+
+      - name: Test website visual layout
+        shell: pwsh
+        run: npm run test:visual
 
       - name: Test desktop strategy engine
         shell: pwsh
