@@ -480,6 +480,7 @@ function testWebsiteSkipsMalformedLiveBars() {
 function testWebsiteLinksLatestDesktopInstaller() {
   assert(htmlCode.includes('id="status-install-desktop"'), "sticky status bar should include a desktop install link");
   assert(htmlCode.includes("data-install-desktop"), "desktop install links should share the latest-release hook");
+  assert(htmlCode.includes("Desktop AI: free OpenCode model ladder"), "install area should explain that free OpenCode thinking is in the desktop app");
   assert(
     htmlCode.includes("releases/latest/download/ChamSD.Desktop.Setup.exe"),
     "desktop install link should default to the latest GitHub Actions installer asset",
@@ -488,6 +489,14 @@ function testWebsiteLinksLatestDesktopInstaller() {
   assert(statusCode.includes("installDesktopLinks.forEach"), "all desktop install links should update from the latest release response");
   assert(statusCode.includes("ChamSD.Desktop.Setup.exe"), "latest release lookup should target the NSIS installer asset");
   assert(htmlCode.includes("Latest GitHub Actions Release"), "website should visibly link to the latest GitHub Actions release");
+}
+
+function testWebsitePredictionIsFullyGuiified() {
+  for (const id of ["prediction-thinking", "prediction-next", "prediction-invalid", "prediction-final"]) {
+    assert(htmlCode.includes(`id="${id}"`), `website prediction panel should expose ${id} card`);
+  }
+  assert(!styleCode.includes(".dashboard-only .prediction-grid article:nth-child(n+3)"), "dashboard must not hide invalidation and bot-read prediction cards");
+  assert(htmlCode.includes("Price Action Prediction"), "website prediction header should make the method clear");
 }
 
 function testWebsiteUsesTwentyFourHourTimeOnly() {
@@ -518,6 +527,7 @@ testWebsiteHasNoExampleOrAdClutter();
 testWebsiteUsesLiveMultiTimeframeDataOnly();
 testWebsiteSkipsMalformedLiveBars();
 testWebsiteLinksLatestDesktopInstaller();
+testWebsitePredictionIsFullyGuiified();
 testWebsiteUsesTwentyFourHourTimeOnly();
 
 console.log("indicator-engine tests passed");

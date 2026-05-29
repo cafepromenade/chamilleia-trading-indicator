@@ -1011,6 +1011,20 @@ h2 {
   white-space: nowrap;
 }
 
+.install-ai-note {
+  grid-column: 1 / -1;
+  min-width: 0;
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .dashboard-only .market-controls {
   grid-template-columns: minmax(175px, 1fr) minmax(96px, 0.6fr) minmax(320px, 1.35fr);
   align-items: start;
@@ -1233,15 +1247,11 @@ h2 {
 }
 
 .prediction-grid article {
-  min-height: 72px;
-  padding: 0.55rem;
+  min-height: 66px;
+  padding: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   background: rgba(13, 20, 31, 0.52);
-}
-
-.dashboard-only .prediction-grid article:nth-child(n+3) {
-  display: none;
 }
 
 .prediction-grid span {
