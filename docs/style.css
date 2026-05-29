@@ -1298,6 +1298,162 @@ h2 {
   color: var(--blue);
 }
 
+.prediction-readout {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.62rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(7, 13, 22, 0.52);
+}
+
+.prediction-light-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+.prediction-light {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.4rem;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.prediction-dot {
+  grid-row: 1 / span 2;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(143, 155, 171, 0.55);
+  box-shadow: 0 0 0 3px rgba(143, 155, 171, 0.08);
+}
+
+.prediction-light strong,
+.prediction-light small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prediction-light strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.prediction-light small {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.prediction-light.on.buy {
+  border-color: rgba(66, 211, 146, 0.52);
+  background: rgba(66, 211, 146, 0.1);
+}
+
+.prediction-light.on.sell {
+  border-color: rgba(255, 107, 107, 0.52);
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.prediction-light.on.wait {
+  border-color: rgba(246, 196, 81, 0.52);
+  background: rgba(246, 196, 81, 0.1);
+}
+
+.prediction-light.on.buy .prediction-dot {
+  background: var(--green);
+  box-shadow: 0 0 16px rgba(66, 211, 146, 0.72), 0 0 0 3px rgba(66, 211, 146, 0.16);
+}
+
+.prediction-light.on.sell .prediction-dot {
+  background: var(--red);
+  box-shadow: 0 0 16px rgba(255, 107, 107, 0.72), 0 0 0 3px rgba(255, 107, 107, 0.16);
+}
+
+.prediction-light.on.wait .prediction-dot {
+  background: var(--yellow);
+  box-shadow: 0 0 16px rgba(246, 196, 81, 0.72), 0 0 0 3px rgba(246, 196, 81, 0.16);
+}
+
+.prediction-meter,
+.prediction-mini-bars {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.prediction-meter-label,
+.prediction-mini-bars > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.prediction-meter-label span,
+.prediction-mini-bars span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.prediction-meter-label strong,
+.prediction-mini-bars strong {
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.prediction-progress,
+.mini-track {
+  grid-column: 1 / -1;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.prediction-progress span,
+.mini-track i {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 520ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.prediction-progress span {
+  background: linear-gradient(90deg, var(--blue), var(--yellow), var(--green));
+}
+
+.prediction-panel.sell .prediction-progress span {
+  background: linear-gradient(90deg, var(--blue), var(--yellow), var(--red));
+}
+
+.mini-track.up i {
+  background: var(--green);
+}
+
+.mini-track.down i {
+  background: var(--red);
+}
+
+.mini-track.wait i {
+  background: var(--yellow);
+}
+
 .prediction-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -515,7 +515,22 @@ function testReleaseWorkflowUploadsOnlyNsisInstallerToRelease() {
 }
 
 function testWebsitePredictionIsFullyGuiified() {
-  for (const id of ["prediction-thinking", "prediction-next", "prediction-invalid", "prediction-final", "prediction-up-case", "prediction-down-case", "prediction-lean-case"]) {
+  for (const id of [
+    "prediction-thinking",
+    "prediction-next",
+    "prediction-invalid",
+    "prediction-final",
+    "prediction-up-case",
+    "prediction-down-case",
+    "prediction-lean-case",
+    "prediction-buy-light",
+    "prediction-sell-light",
+    "prediction-wait-light",
+    "prediction-confidence-fill",
+    "prediction-up-fill",
+    "prediction-down-fill",
+    "prediction-wait-fill",
+  ]) {
     assert(htmlCode.includes(`id="${id}"`), `website prediction panel should expose ${id} card`);
   }
   assert(!styleCode.includes(".dashboard-only .prediction-grid article:nth-child(n+3)"), "dashboard must not hide invalidation and bot-read prediction cards");
@@ -524,9 +539,13 @@ function testWebsitePredictionIsFullyGuiified() {
   assert(htmlCode.includes("Could Go Down"), "prediction panel should show a down scenario");
   assert(statusCode.includes("predictionUpCase.textContent"), "website should fill the up scenario from live strategy state");
   assert(statusCode.includes("predictionDownCase.textContent"), "website should fill the down scenario from live strategy state");
+  assert(statusCode.includes("predictionReadoutForDecision(decision)"), "website should calculate prediction status lights from live strategy state");
+  assert(statusCode.includes("renderPredictionReadout(readout)"), "website should update prediction progress bars");
   assert(statusCode.includes("Could go up if price taps demand cleanly"), "up prediction should explain the price-action condition");
   assert(statusCode.includes("Could go down if price closes through demand"), "down prediction should explain the invalidation condition");
   assert(styleCode.includes(".prediction-scenarios"), "prediction panel should render scenario graphics");
+  assert(styleCode.includes(".prediction-light-strip"), "prediction panel should render status lights");
+  assert(styleCode.includes(".prediction-progress"), "prediction panel should render progress bars");
   assert(styleCode.includes("min-height: 86px"), "main prediction cards should be larger than the old compact cards");
 }
 

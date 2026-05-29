@@ -96,6 +96,51 @@
                 <span>Price Action Prediction</span>
                 <strong id="prediction-status">WAITING</strong>
               </div>
+              <div class="prediction-readout" aria-label="Prediction status lights and strength bars">
+                <div class="prediction-light-strip">
+                  <div id="prediction-buy-light" class="prediction-light off">
+                    <span class="prediction-dot" aria-hidden="true"></span>
+                    <strong>Buy</strong>
+                    <small>OFF</small>
+                  </div>
+                  <div id="prediction-sell-light" class="prediction-light off">
+                    <span class="prediction-dot" aria-hidden="true"></span>
+                    <strong>Sell</strong>
+                    <small>OFF</small>
+                  </div>
+                  <div id="prediction-wait-light" class="prediction-light on wait">
+                    <span class="prediction-dot" aria-hidden="true"></span>
+                    <strong>Wait</strong>
+                    <small>ON</small>
+                  </div>
+                </div>
+                <div class="prediction-meter">
+                  <div class="prediction-meter-label">
+                    <span>Prediction Strength</span>
+                    <strong id="prediction-confidence-label">0%</strong>
+                  </div>
+                  <div class="prediction-progress" aria-hidden="true">
+                    <span id="prediction-confidence-fill"></span>
+                  </div>
+                </div>
+                <div class="prediction-mini-bars">
+                  <div>
+                    <span>Up chance</span>
+                    <strong id="prediction-up-score">0%</strong>
+                    <div class="mini-track up"><i id="prediction-up-fill"></i></div>
+                  </div>
+                  <div>
+                    <span>Down chance</span>
+                    <strong id="prediction-down-score">0%</strong>
+                    <div class="mini-track down"><i id="prediction-down-fill"></i></div>
+                  </div>
+                  <div>
+                    <span>Wait safety</span>
+                    <strong id="prediction-wait-score">100%</strong>
+                    <div class="mini-track wait"><i id="prediction-wait-fill"></i></div>
+                  </div>
+                </div>
+              </div>
               <div class="prediction-grid">
                 <article>
                   <span>Thinking</span>

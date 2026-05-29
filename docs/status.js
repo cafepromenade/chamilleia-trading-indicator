@@ -23,6 +23,19 @@
   const predictionUpCase = document.querySelector("#prediction-up-case");
   const predictionDownCase = document.querySelector("#prediction-down-case");
   const predictionLeanCase = document.querySelector("#prediction-lean-case");
+  const predictionConfidenceLabel = document.querySelector("#prediction-confidence-label");
+  const predictionConfidenceFill = document.querySelector("#prediction-confidence-fill");
+  const predictionUpScore = document.querySelector("#prediction-up-score");
+  const predictionDownScore = document.querySelector("#prediction-down-score");
+  const predictionWaitScore = document.querySelector("#prediction-wait-score");
+  const predictionUpFill = document.querySelector("#prediction-up-fill");
+  const predictionDownFill = document.querySelector("#prediction-down-fill");
+  const predictionWaitFill = document.querySelector("#prediction-wait-fill");
+  const predictionLights = {
+    buy: document.querySelector("#prediction-buy-light"),
+    sell: document.querySelector("#prediction-sell-light"),
+    wait: document.querySelector("#prediction-wait-light"),
+  };
   const installDesktopLinks = [...document.querySelectorAll("[data-install-desktop]")];
   const latestReleaseLink = document.querySelector("#latest-release-link");
   let previousStatusLabel = "";
@@ -388,10 +401,77 @@
     };
   }
 
+  function clampPercent(value) {
+    return Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  }
+
+  function predictionReadoutForDecision(decision) {
+    const confidence = clampPercent(decision.confidence);
+    const bias = decision.bias.direction;
+    let up = bias === "bullish" ? 44 : bias === "bearish" ? 18 : 28;
+    let down = bias === "bearish" ? 44 : bias === "bullish" ? 18 : 28;
+    let wait = 72;
+
+    if (decision.className === "buy") {
+      up = confidence;
+      down = clampPercent(100 - confidence);
+      wait = clampPercent(100 - confidence + 10);
+    } else if (decision.className === "sell") {
+      down = confidence;
+      up = clampPercent(100 - confidence);
+      wait = clampPercent(100 - confidence + 10);
+    } else if (decision.className === "no-trade") {
+      up = 8;
+      down = 8;
+      wait = 100;
+    } else if (decision.className === "caution") {
+      up = bias === "bullish" ? clampPercent(confidence * 0.58) : 22;
+      down = bias === "bearish" ? clampPercent(confidence * 0.58) : 22;
+      wait = Math.max(70, clampPercent(100 - confidence + 42));
+    } else {
+      up = bias === "bullish" ? clampPercent(confidence * 0.68) : up;
+      down = bias === "bearish" ? clampPercent(confidence * 0.68) : down;
+      wait = Math.max(62, clampPercent(100 - confidence + 35));
+    }
+
+    const active = decision.className === "buy" ? "buy" : decision.className === "sell" ? "sell" : "wait";
+    return {
+      confidence,
+      up: clampPercent(up),
+      down: clampPercent(down),
+      wait: clampPercent(wait),
+      active,
+    };
+  }
+
+  function setPredictionLight(name, activeName, score) {
+    const light = predictionLights[name];
+    if (!light) return;
+    const isActive = name === activeName;
+    light.className = `prediction-light ${isActive ? "on" : "off"} ${name}`;
+    light.querySelector("small").textContent = isActive ? (score >= 70 ? "READY" : "ON") : "OFF";
+  }
+
+  function renderPredictionReadout(readout) {
+    if (predictionConfidenceLabel) predictionConfidenceLabel.textContent = `${readout.confidence}%`;
+    if (predictionConfidenceFill) predictionConfidenceFill.style.width = `${readout.confidence}%`;
+    if (predictionUpScore) predictionUpScore.textContent = `${readout.up}%`;
+    if (predictionDownScore) predictionDownScore.textContent = `${readout.down}%`;
+    if (predictionWaitScore) predictionWaitScore.textContent = `${readout.wait}%`;
+    if (predictionUpFill) predictionUpFill.style.width = `${readout.up}%`;
+    if (predictionDownFill) predictionDownFill.style.width = `${readout.down}%`;
+    if (predictionWaitFill) predictionWaitFill.style.width = `${readout.wait}%`;
+    setPredictionLight("buy", readout.active, readout.up);
+    setPredictionLight("sell", readout.active, readout.down);
+    setPredictionLight("wait", readout.active, readout.wait);
+  }
+
   function renderPrediction(decision) {
     const prediction = predictionForDecision(decision);
+    const readout = predictionReadoutForDecision(decision);
     predictionPanel.className = `prediction-panel ${decision.className}`;
     predictionStatus.textContent = prediction.status;
+    renderPredictionReadout(readout);
     predictionThinking.textContent = prediction.thinking;
     predictionNext.textContent = prediction.next;
     predictionInvalid.textContent = prediction.invalid;
@@ -404,6 +484,13 @@
   function renderPredictionUnavailable(message, className = "wait") {
     predictionPanel.className = `prediction-panel ${className}`;
     predictionStatus.textContent = className === "no-trade" ? "OFFLINE" : "WAITING";
+    renderPredictionReadout({
+      confidence: 0,
+      up: 0,
+      down: 0,
+      wait: className === "no-trade" ? 100 : 70,
+      active: "wait",
+    });
     predictionThinking.textContent = message;
     predictionNext.textContent = "No live prediction is available yet.";
     predictionInvalid.textContent = "Live candles are required before invalidation can be read.";
