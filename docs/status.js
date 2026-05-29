@@ -20,6 +20,9 @@
   const predictionNext = document.querySelector("#prediction-next");
   const predictionInvalid = document.querySelector("#prediction-invalid");
   const predictionFinal = document.querySelector("#prediction-final");
+  const predictionUpCase = document.querySelector("#prediction-up-case");
+  const predictionDownCase = document.querySelector("#prediction-down-case");
+  const predictionLeanCase = document.querySelector("#prediction-lean-case");
   const installDesktopLinks = [...document.querySelectorAll("[data-install-desktop]")];
   const latestReleaseLink = document.querySelector("#latest-release-link");
   let previousStatusLabel = "";
@@ -326,6 +329,13 @@
     const invalidation = checklistText(decision, "Invalidation");
     const structure = checklistText(decision, "5M structure alignment");
     const zoneTap = checklistText(decision, "Zone tap");
+    const upCase = bias === "bearish"
+      ? "Needs a fresh bullish indication, correction, and continuation before any up read matters."
+      : "Could go up if price taps demand cleanly, holds the zone, then reclaims structure.";
+    const downCase = bias === "bullish"
+      ? "Could go down if price closes through demand or fails continuation into a shift of gears."
+      : "Could go down if price taps supply cleanly, holds the zone, then breaks lower.";
+    const leanCase = `${label.replace("STATUS: ", "")} with ${decision.confidence}% confidence.`;
 
     if (decision.className === "buy") {
       return {
@@ -334,6 +344,9 @@
         next: "The next likely bot action is BUY unless price closes through the tapped demand zone.",
         invalid: invalidation,
         final: label,
+        up: "Up case is active: demand held, structure reclaimed, and the bot has a BUY read.",
+        down: "Down case needs invalidation first: body close through demand or a failed continuation.",
+        lean: leanCase,
       };
     }
 
@@ -344,6 +357,9 @@
         next: "The next likely bot action is SELL unless price closes through the tapped supply zone.",
         invalid: invalidation,
         final: label,
+        up: "Up case needs invalidation first: body close through supply or a failed continuation.",
+        down: "Down case is active: supply held, structure broke lower, and the bot has a SELL read.",
+        lean: leanCase,
       };
     }
 
@@ -354,6 +370,9 @@
         next: "The bot should not buy or sell until live structure gives a clean setup.",
         invalid: checklistText(decision, "Consolidation/ATH filter"),
         final: label,
+        up: "Up case is blocked until price action builds a clean bullish structure.",
+        down: "Down case is blocked until price action builds a clean bearish structure.",
+        lean: "No trade. The bot is waiting for structure instead of guessing.",
       };
     }
 
@@ -363,6 +382,9 @@
       next: decision.note,
       invalid: invalidation,
       final: label,
+      up: upCase,
+      down: downCase,
+      lean: leanCase,
     };
   }
 
@@ -374,6 +396,9 @@
     predictionNext.textContent = prediction.next;
     predictionInvalid.textContent = prediction.invalid;
     predictionFinal.textContent = prediction.final;
+    predictionUpCase.textContent = prediction.up;
+    predictionDownCase.textContent = prediction.down;
+    predictionLeanCase.textContent = prediction.lean;
   }
 
   function renderPredictionUnavailable(message, className = "wait") {
@@ -383,6 +408,9 @@
     predictionNext.textContent = "No live prediction is available yet.";
     predictionInvalid.textContent = "Live candles are required before invalidation can be read.";
     predictionFinal.textContent = className === "no-trade" ? "STATUS: DATA UNAVAILABLE" : "STATUS: LOADING";
+    predictionUpCase.textContent = "Up case needs live candles first.";
+    predictionDownCase.textContent = "Down case needs live candles first.";
+    predictionLeanCase.textContent = "Waiting for the live status.";
   }
 
   function renderEngineResult({ productId, candles, m15Candles, m30Candles, h1Candles, h4Candles, d1Candles, source }) {

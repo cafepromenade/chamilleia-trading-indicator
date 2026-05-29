@@ -515,11 +515,19 @@ function testReleaseWorkflowUploadsOnlyNsisInstallerToRelease() {
 }
 
 function testWebsitePredictionIsFullyGuiified() {
-  for (const id of ["prediction-thinking", "prediction-next", "prediction-invalid", "prediction-final"]) {
+  for (const id of ["prediction-thinking", "prediction-next", "prediction-invalid", "prediction-final", "prediction-up-case", "prediction-down-case", "prediction-lean-case"]) {
     assert(htmlCode.includes(`id="${id}"`), `website prediction panel should expose ${id} card`);
   }
   assert(!styleCode.includes(".dashboard-only .prediction-grid article:nth-child(n+3)"), "dashboard must not hide invalidation and bot-read prediction cards");
   assert(htmlCode.includes("Price Action Prediction"), "website prediction header should make the method clear");
+  assert(htmlCode.includes("Could Go Up"), "prediction panel should show an up scenario");
+  assert(htmlCode.includes("Could Go Down"), "prediction panel should show a down scenario");
+  assert(statusCode.includes("predictionUpCase.textContent"), "website should fill the up scenario from live strategy state");
+  assert(statusCode.includes("predictionDownCase.textContent"), "website should fill the down scenario from live strategy state");
+  assert(statusCode.includes("Could go up if price taps demand cleanly"), "up prediction should explain the price-action condition");
+  assert(statusCode.includes("Could go down if price closes through demand"), "down prediction should explain the invalidation condition");
+  assert(styleCode.includes(".prediction-scenarios"), "prediction panel should render scenario graphics");
+  assert(styleCode.includes("min-height: 86px"), "main prediction cards should be larger than the old compact cards");
 }
 
 function testWebsiteUsesTwentyFourHourTimeOnly() {
