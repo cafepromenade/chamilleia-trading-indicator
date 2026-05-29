@@ -519,12 +519,14 @@ public sealed partial class MainPage : Page
         _webhooks.Add(endpoint);
         WebhookList.SelectedItem = endpoint;
         LoadWebhookEditor(endpoint);
+        UpdateWebhookSummary();
     }
 
     private async Task LoadSavedWebhooksAsync()
     {
         if (_webhooks.Count > 0)
         {
+            UpdateWebhookSummary();
             return;
         }
 
@@ -549,6 +551,7 @@ public sealed partial class MainPage : Page
 
         WebhookList.SelectedIndex = 0;
         LoadWebhookEditor(_webhooks[0]);
+        UpdateWebhookSummary();
     }
 
     private void LoadWebhookEditor(WebhookEndpoint? endpoint)
@@ -577,6 +580,16 @@ public sealed partial class MainPage : Page
         WebhookList.ItemsSource = null;
         WebhookList.ItemsSource = _webhooks;
         WebhookList.SelectedItem = endpoint;
+        UpdateWebhookSummary();
+    }
+
+    private void UpdateWebhookSummary()
+    {
+        var enabled = _webhooks.Count(item => item.Enabled);
+        var statusChange = _webhooks.Count(item => item.Enabled && item.SendOnStatusChange);
+        WebhookSummaryText.Text = _webhooks.Count == 0
+            ? "No webhooks configured."
+            : $"{_webhooks.Count} configured, {enabled} enabled, {statusChange} send on status change.";
     }
 
     private async Task SaveWebhookSettingsAsync()
@@ -776,6 +789,7 @@ Checklist:
         _webhooks.Add(endpoint);
         WebhookList.SelectedItem = endpoint;
         LoadWebhookEditor(endpoint);
+        UpdateWebhookSummary();
         await SaveWebhookSettingsAsync();
     }
 
@@ -786,6 +800,7 @@ Checklist:
             SaveWebhookEditor(endpoint);
             await SaveWebhookSettingsAsync();
             AppendLog($"{endpoint.Name}: saved.");
+            UpdateWebhookSummary();
         }
     }
 
@@ -798,6 +813,11 @@ Checklist:
 
         _webhooks.Remove(endpoint);
         WebhookList.SelectedIndex = _webhooks.Count > 0 ? 0 : -1;
+        if (WebhookList.SelectedItem is WebhookEndpoint selected)
+        {
+            LoadWebhookEditor(selected);
+        }
+        UpdateWebhookSummary();
         await SaveWebhookSettingsAsync();
     }
 
@@ -812,6 +832,18 @@ Checklist:
     private async void ThinkButton_Click(object sender, RoutedEventArgs e)
     {
         await RunThinkingAsync();
+    }
+
+    private async void ManageWebhooksButton_Click(object sender, RoutedEventArgs e)
+    {
+        WebhookDialog.XamlRoot = XamlRoot;
+        if (WebhookList.SelectedItem is null && _webhooks.Count > 0)
+        {
+            WebhookList.SelectedIndex = 0;
+        }
+
+        await WebhookDialog.ShowAsync();
+        UpdateWebhookSummary();
     }
 
     private void TestNotificationButton_Click(object sender, RoutedEventArgs e)

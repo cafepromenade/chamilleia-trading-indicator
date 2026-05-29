@@ -26,6 +26,7 @@ tests.DesktopStatusAnimationIsDramaticAndColorCoded();
 tests.DesktopChartShowsRiskLevels();
 tests.DesktopWindowIsFixedSize();
 tests.DesktopUsesFullFixedWindowWidth();
+tests.DesktopWebhookEditorUsesRoomyDialog();
 tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
 tests.DesktopRunsOpenCodePredictionsAutomaticallyByDefault();
 tests.DesktopHasWindowsStatusNotifications();
@@ -506,10 +507,27 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
 
         Assert(!pageXaml.Contains("MaxWidth=\"1080\"", StringComparison.Ordinal), "desktop app should not waste fixed-window width with the old 1080px layout cap");
         Assert(pageXaml.Contains("HorizontalAlignment=\"Stretch\"", StringComparison.Ordinal), "desktop main layout should stretch across the fixed desktop window");
-        Assert(pageXaml.Contains("<ColumnDefinition Width=\"440\" />", StringComparison.Ordinal), "desktop side panel should be wide enough for prediction cards, webhooks, and checklist details");
+        Assert(pageXaml.Contains("<ColumnDefinition Width=\"560\" />", StringComparison.Ordinal), "desktop side panel should be wide enough for prediction cards, webhooks, and checklist details");
         Assert(pageXaml.Contains("x:Name=\"PredictionThinkingText\"\r\n                                                        MaxLines=\"4\"", StringComparison.Ordinal) ||
                pageXaml.Contains("x:Name=\"PredictionThinkingText\"\n                                                        MaxLines=\"4\"", StringComparison.Ordinal),
             "desktop prediction cards should show more than a tiny text snippet");
+    }
+
+    public void DesktopWebhookEditorUsesRoomyDialog()
+    {
+        var pageXaml = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml");
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+
+        Assert(pageXaml.Contains("x:Name=\"ManageWebhooksButton\"", StringComparison.Ordinal), "desktop should expose a compact manage-webhooks button");
+        Assert(pageXaml.Contains("x:Name=\"WebhookDialog\"", StringComparison.Ordinal), "webhook editor should live in a dialog");
+        Assert(pageXaml.Contains("Title=\"Manage Webhooks\"", StringComparison.Ordinal), "webhook dialog should have a clear title");
+        Assert(pageXaml.Contains("<StackPanel Width=\"760\" Spacing=\"12\">", StringComparison.Ordinal), "webhook dialog should be wide enough for URLs, headers, and values");
+        Assert(pageXaml.Contains("x:Name=\"WebhookList\"", StringComparison.Ordinal) && pageXaml.Contains("Height=\"150\"", StringComparison.Ordinal), "webhook dialog should show a tall endpoint list");
+        Assert(pageXaml.Contains("x:Name=\"HeadersList\"", StringComparison.Ordinal) && pageXaml.Contains("Height=\"110\"", StringComparison.Ordinal), "webhook dialog should show a tall headers list");
+        Assert(pageXaml.Contains("x:Name=\"ValuesList\"", StringComparison.Ordinal) && pageXaml.Contains("Height=\"110\"", StringComparison.Ordinal), "webhook dialog should show a tall values list");
+        Assert(pageCode.Contains("WebhookDialog.XamlRoot = XamlRoot", StringComparison.Ordinal), "webhook dialog should set XamlRoot before showing");
+        Assert(pageCode.Contains("await WebhookDialog.ShowAsync()", StringComparison.Ordinal), "manage button should open the webhook dialog");
+        Assert(pageCode.Contains("UpdateWebhookSummary()", StringComparison.Ordinal), "desktop should keep the compact webhook summary updated");
     }
 
     public void DesktopUserInterfaceHasNoExampleOrAdClutter()
