@@ -442,6 +442,28 @@
       .sort((a, b) => a.time - b.time);
   }
 
+  const liveFreshnessSeconds = {
+    "5m": 90 * 60,
+    "15m": 3 * 60 * 60,
+    "30m": 6 * 60 * 60,
+    "1h": 12 * 60 * 60,
+    "4h": 48 * 60 * 60,
+    "1d": 10 * 24 * 60 * 60,
+  };
+
+  function assertFreshCandles(candles, interval, nowSeconds = Date.now() / 1000) {
+    const newest = candles.at(-1);
+    const maxAge = liveFreshnessSeconds[interval] || liveFreshnessSeconds["5m"];
+    if (!newest || !Number.isFinite(newest.time)) {
+      throw new Error(`Live ${interval.toUpperCase()} candles are unavailable`);
+    }
+
+    const age = nowSeconds - newest.time;
+    if (age > maxAge) {
+      throw new Error(`Live ${interval.toUpperCase()} candles are stale. Newest candle is ${formatDateTime(newest.time)}.`);
+    }
+  }
+
   function withCacheBust(url) {
     const joiner = url.includes("?") ? "&" : "?";
     return `${url}${joiner}_=${Date.now()}`;
@@ -505,6 +527,12 @@
       if (m15Candles.length < 30 || m30Candles.length < 30 || h1Candles.length < 30 || h4Candles.length < 30 || d1Candles.length < 30) {
         throw new Error("Not enough higher-timeframe candle data returned");
       }
+      assertFreshCandles(candles, "5m");
+      assertFreshCandles(m15Candles, "15m");
+      assertFreshCandles(m30Candles, "30m");
+      assertFreshCandles(h1Candles, "1h");
+      assertFreshCandles(h4Candles, "4h");
+      assertFreshCandles(d1Candles, "1d");
 
       renderEngineResult({
         productId: market.name,

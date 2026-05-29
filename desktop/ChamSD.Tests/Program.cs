@@ -27,6 +27,7 @@ tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
 tests.DesktopUsesLiveMultiTimeframeDataOnly();
 tests.DesktopUsesTwentyFourHourTimeOnly();
 tests.DesktopLiveDataParserSkipsMalformedBars();
+tests.DesktopRejectsStaleLiveCandles();
 await tests.WebhookSettingsPersistUnlimitedEndpointsAsync();
 tests.WebhookStatusChangeDoesNotOverwriteEndpoints();
 Console.WriteLine("desktop strategy tests passed");
@@ -542,6 +543,29 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(candles.Count == 1, "desktop parser should skip malformed live bars instead of turning bad prices into zero");
         Assert(candles[0].Open == 100.5, "desktop parser should preserve valid string numeric prices");
         Assert(candles[0].Volume == 12, "desktop parser should preserve valid tick volume");
+    }
+
+    public void DesktopRejectsStaleLiveCandles()
+    {
+        var now = new DateTimeOffset(2026, 5, 29, 12, 0, 0, TimeSpan.Zero);
+        var stale = new List<MarketCandle>
+        {
+            new(now.AddHours(-4), 100, 101, 99, 100.5, 10),
+        };
+        var fresh = new List<MarketCandle>
+        {
+            new(now.AddMinutes(-20), 100, 101, 99, 100.5, 10),
+        };
+
+        MarketDataService.EnsureFreshCandles(fresh, "5m", now);
+        try
+        {
+            MarketDataService.EnsureFreshCandles(stale, "5m", now);
+            throw new InvalidOperationException("desktop app should reject stale live candle data");
+        }
+        catch (InvalidOperationException error) when (error.Message.Contains("Live 5M candles are stale", StringComparison.Ordinal))
+        {
+        }
     }
 
     public async Task WebhookSettingsPersistUnlimitedEndpointsAsync()

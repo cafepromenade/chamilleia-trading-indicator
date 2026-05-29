@@ -25,6 +25,7 @@ public sealed class MarketDataService
         {
             throw new InvalidOperationException("The live data server returned no valid candles.");
         }
+        EnsureFreshCandles(candles, interval, DateTimeOffset.UtcNow);
 
         return candles;
     }
@@ -49,6 +50,40 @@ public sealed class MarketDataService
         }
 
         return candles;
+    }
+
+    public static void EnsureFreshCandles(IReadOnlyList<MarketCandle> candles, string interval, DateTimeOffset now)
+    {
+        if (candles.Count == 0)
+        {
+            throw new InvalidOperationException($"Live {FormatInterval(interval)} candles are unavailable.");
+        }
+
+        var newest = candles[^1].Time.ToUniversalTime();
+        var age = now.ToUniversalTime() - newest;
+        if (age > MaxAgeForInterval(interval))
+        {
+            throw new InvalidOperationException($"Live {FormatInterval(interval)} candles are stale. Newest candle is {newest.ToLocalTime():MMM d, HH:mm zzz}.");
+        }
+    }
+
+    private static TimeSpan MaxAgeForInterval(string interval)
+    {
+        return interval.ToLowerInvariant() switch
+        {
+            "5m" => TimeSpan.FromMinutes(90),
+            "15m" => TimeSpan.FromHours(3),
+            "30m" => TimeSpan.FromHours(6),
+            "1h" => TimeSpan.FromHours(12),
+            "4h" => TimeSpan.FromHours(48),
+            "1d" => TimeSpan.FromDays(10),
+            _ => TimeSpan.FromMinutes(90),
+        };
+    }
+
+    private static string FormatInterval(string interval)
+    {
+        return interval.ToUpperInvariant();
     }
 
     private static MarketCandle? ParseBar(BiQuoteBar bar)

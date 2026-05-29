@@ -471,6 +471,8 @@ function testWebsiteUsesLiveMultiTimeframeDataOnly() {
   assert(statusCode.includes("https://biquote.io/api/"), "website must fetch live market candles from BiQuote");
   assert(statusCode.includes("cache: \"no-store\""), "website live data requests must avoid cached candle payloads");
   assert(statusCode.includes("withCacheBust(url)"), "website must cache-bust live candle requests");
+  assert(statusCode.includes("assertFreshCandles(candles, \"5m\")"), "website should reject stale 5M candles before status calculation");
+  assert(statusCode.includes("Live ${interval.toUpperCase()} candles are stale"), "website should show a stale-live-data error instead of calculating from old candles");
   for (const interval of ["5m", "15m", "30m", "1h", "4h", "1d"]) {
     assert(statusCode.includes(`biquoteUrl(market.symbol, "${interval}")`), `website must fetch ${interval} live candles`);
   }
