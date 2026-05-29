@@ -11,6 +11,7 @@
   const marketSelect = document.querySelector("#market-select");
   const reloadLive = document.querySelector("#reload-live");
   const strategyChecklist = document.querySelector("#strategy-checklist");
+  const riskBox = document.querySelector(".risk-box");
   const riskPlan = document.querySelector("#risk-plan");
   const riskNote = document.querySelector("#risk-note");
   const predictionPanel = document.querySelector("#prediction-panel");
@@ -108,6 +109,8 @@
       statusFlash,
       heroStatus?.parentElement,
       liveChart,
+      predictionPanel,
+      riskBox,
     ].filter(Boolean);
 
     if (previousStatusLabel && previousStatusLabel !== result.label) {
@@ -139,6 +142,9 @@
     liveStatusBar.querySelector(".bar-note").textContent = result.note;
     if (statusFlash) {
       statusFlash.className = `status-flash ${result.className}`;
+    }
+    if (riskBox) {
+      riskBox.className = `strategy-box risk-box ${result.className}`;
     }
     animateStatusChange(result);
   }

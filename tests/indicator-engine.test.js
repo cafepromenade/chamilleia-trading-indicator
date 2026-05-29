@@ -436,10 +436,17 @@ function testWebsiteHasDramaticStatusFlash() {
   assert(htmlCode.includes('id="status-flash"'), "website should include a full-page status flash layer");
   assert(statusCode.includes("statusFlash.className"), "status script should color the flash layer by current status");
   assert(statusCode.includes("document.body.classList.add(`status-${result.className}`)"), "status script should theme the full dashboard by status");
+  assert(statusCode.includes("predictionPanel,"), "status-change animation should include the prediction panel");
+  assert(statusCode.includes("riskBox,"), "status-change animation should include the risk plan");
+  assert(statusCode.includes("riskBox.className = `strategy-box risk-box ${result.className}`"), "risk plan should receive the active status class");
   assert(/@keyframes\s+status-flash-burst/.test(styleCode), "CSS should define the dramatic status flash animation");
+  assert(/@keyframes\s+panel-pop/.test(styleCode), "CSS should define a panel status-change animation");
+  assert(styleCode.includes(".prediction-panel.status-change"), "prediction panel should animate on status changes");
+  assert(styleCode.includes(".risk-box.status-change"), "risk plan should animate on status changes");
   for (const className of ["buy", "sell", "wait", "no-trade", "caution"]) {
     assert(styleCode.includes(`.status-flash.${className}`), `CSS should color flash state ${className}`);
     assert(styleCode.includes(`status-${className}`), `CSS should theme body state ${className}`);
+    assert(styleCode.includes(`.risk-box.${className}`), `risk plan should color state ${className}`);
   }
 }
 
