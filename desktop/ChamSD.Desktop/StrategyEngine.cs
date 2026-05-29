@@ -826,8 +826,8 @@ public sealed class StrategyEngine
         var counterBreakReady = counterTrend && (
             bias.Direction == "bullish" && latest.Bull && m15Bias.Direction == "bullish" && strongFullBodyBreak ||
             bias.Direction == "bearish" && latest.Bear && m15Bias.Direction == "bearish" && strongFullBodyBreak);
-        var bullishFailedThroughStop = newestZoneInvalidated && newestZone?.IsDemand == true && bias.Direction == "bullish" && latest.Bear && latest.Close < newestZone.Bot;
-        var bearishFailedThroughStop = newestZoneInvalidated && newestZone?.IsDemand == false && bias.Direction == "bearish" && latest.Bull && latest.Close > newestZone.Top;
+        var bullishFailedThroughStop = newestZoneInvalidated && newestZone?.IsDemand == true && bias.Direction == "bullish" && latest.Close < newestZone.Bot;
+        var bearishFailedThroughStop = newestZoneInvalidated && newestZone?.IsDemand == false && bias.Direction == "bearish" && latest.Close > newestZone.Top;
         var shiftOfGears = aggressiveFailure && (bullishFailedThroughStop || bearishFailedThroughStop);
         var shiftDirection = bullishFailedThroughStop ? "bearish" : bearishFailedThroughStop ? "bullish" : "neutral";
 

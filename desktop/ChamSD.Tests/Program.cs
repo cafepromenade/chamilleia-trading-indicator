@@ -3,6 +3,8 @@ using ChamSD_Desktop;
 var tests = new DesktopStrategyTests();
 tests.PrimaryIndicationGateBlocksBuyBeforeReclaim();
 tests.FailedDemandWaitsForSecondHigherLowReset();
+tests.ShiftOfGearsFlipsAfterFailedContinuation();
+tests.NoHistoricalTargetAbortsBuy();
 tests.KeepsOnlyNewestZone();
 tests.RangeFallbackUsesStrictOneToOneRisk();
 tests.APlusRequiresWickOnlyZoneTap();
@@ -67,6 +69,37 @@ internal sealed class DesktopStrategyTests
             minorReset.Text.Contains("second higher low", StringComparison.OrdinalIgnoreCase) &&
             minorReset.Text.Contains("break above minor structure", StringComparison.OrdinalIgnoreCase),
             "failed buy reset must ask for second higher low plus minor structure break");
+    }
+
+    public void ShiftOfGearsFlipsAfterFailedContinuation()
+    {
+        var execution = BaseExecution();
+        execution.AddRange(new[]
+        {
+            Candle(26, 102, 103, 94.5, 102.5),
+            Candle(27, 102.5, 103.2, 101.8, 102.7),
+            Candle(28, 102.7, 103.4, 102.1, 102.9),
+            Candle(29, 102.9, 103, 75, 80),
+        });
+
+        var decision = DecisionForExecution(execution);
+        var shift = Checklist(decision, "Shift of gears");
+
+        Assert(decision.Phase == "SHIFT OF GEARS", "failed continuation through demand stop should flip into shift-of-gears phase");
+        Assert(decision.Label == "STATUS: WAIT FOR SELL", "failed bullish continuation should reset toward a sell indication");
+        Assert(!shift.Ok, "shift-of-gears checklist should fail while the bot is resetting direction");
+        Assert(shift.Text.Contains("fresh bearish indication", StringComparison.OrdinalIgnoreCase), "shift text should explain the new opposing indication");
+    }
+
+    public void NoHistoricalTargetAbortsBuy()
+    {
+        var decision = DecisionForExecutionWithDaily(ExecutionWithZoneTap(tapIsWickOnly: true), D1BullishNoHistoricalTarget());
+        var targetFilter = Checklist(decision, "Consolidation/ATH filter");
+
+        Assert(decision.Phase == "NO TARGET FILTER", "near available-history high should use no-target filter");
+        Assert(decision.Label == "STATUS: WAIT", "no-target filter must not become BUY");
+        Assert(!targetFilter.Ok, "no-target filter should fail when no structural target is available");
+        Assert(targetFilter.Text.Contains("skip if there is no clean structural target", StringComparison.OrdinalIgnoreCase), "filter should explain the no-target abort rule");
     }
 
     public void KeepsOnlyNewestZone()
@@ -434,6 +467,18 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
             bullish);
     }
 
+    private StrategyDecision DecisionForExecutionWithDaily(IReadOnlyList<MarketCandle> executionCandles, IReadOnlyList<MarketCandle> d1Candles)
+    {
+        var bullish = HtfBullish();
+        return _engine.CalculateStrategyDecision(
+            executionCandles,
+            bullish,
+            bullish,
+            bullish,
+            bullish,
+            d1Candles);
+    }
+
     private static List<MarketCandle> BaseExecution()
     {
         var bars = Filler(20, 96);
@@ -568,6 +613,21 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
             Candle(37, 102, 113, 101, 102),
             Candle(38, 104, 115, 103, 104),
             Candle(39, 100, 110, 94, 95),
+        });
+        return bars;
+    }
+
+    private static List<MarketCandle> D1BullishNoHistoricalTarget()
+    {
+        var bars = Filler(34, 95);
+        bars.AddRange(new[]
+        {
+            Candle(34, 97, 106, 96, 100),
+            Candle(35, 98, 99, 97, 98),
+            Candle(36, 96, 97, 95, 96),
+            Candle(37, 98, 99, 97, 98),
+            Candle(38, 96, 97, 95, 96),
+            Candle(39, 100, 106, 99, 105),
         });
         return bars;
     }

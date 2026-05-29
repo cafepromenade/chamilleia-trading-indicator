@@ -652,8 +652,8 @@
       (bias.direction === "bullish" && latest.bull && m15Bias.direction === "bullish" && strongFullBodyBreak) ||
       (bias.direction === "bearish" && latest.bear && m15Bias.direction === "bearish" && strongFullBodyBreak)
     );
-    const bullishFailedThroughStop = newestZoneInvalidated && newestZone?.isDemand && bias.direction === "bullish" && latest.bear && latest.close < newestZone.bot;
-    const bearishFailedThroughStop = newestZoneInvalidated && newestZone && !newestZone.isDemand && bias.direction === "bearish" && latest.bull && latest.close > newestZone.top;
+    const bullishFailedThroughStop = newestZoneInvalidated && newestZone?.isDemand && bias.direction === "bullish" && latest.close < newestZone.bot;
+    const bearishFailedThroughStop = newestZoneInvalidated && newestZone && !newestZone.isDemand && bias.direction === "bearish" && latest.close > newestZone.top;
     const shiftOfGears = aggressiveFailure && (bullishFailedThroughStop || bearishFailedThroughStop);
     const shiftDirection = bullishFailedThroughStop ? "bearish" : bearishFailedThroughStop ? "bullish" : "neutral";
 

@@ -66,6 +66,19 @@ function htfBearish() {
   return bars;
 }
 
+function d1BullishNoHistoricalTarget() {
+  const bars = filler(34, 95);
+  bars.push(
+    candle(34, 97, 106, 96, 100),
+    candle(35, 98, 99, 97, 98),
+    candle(36, 96, 97, 95, 96),
+    candle(37, 98, 99, 97, 98),
+    candle(38, 96, 97, 95, 96),
+    candle(39, 100, 106, 99, 105),
+  );
+  return bars;
+}
+
 function decisionForExecution(executionCandles) {
   const bullish = htfBullish();
   return engine.calculateStrategyDecision({
@@ -75,6 +88,18 @@ function decisionForExecution(executionCandles) {
     h1Candles: bullish,
     h4Candles: bullish,
     d1Candles: bullish,
+  });
+}
+
+function decisionForExecutionWithDaily(executionCandles, d1Candles) {
+  const bullish = htfBullish();
+  return engine.calculateStrategyDecision({
+    executionCandles,
+    m15Candles: bullish,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles,
   });
 }
 
@@ -188,6 +213,36 @@ function testFailedDemandNeedsSecondHigherLowReset() {
     minorReset.text.includes("second higher low") && minorReset.text.includes("break above minor structure"),
     "failed buy reset must ask for second higher low plus minor structure break",
   );
+}
+
+function testShiftOfGearsFlipsAfterFailedContinuation() {
+  const execution = baseExecution();
+  execution.push(
+    candle(26, 102, 103, 94.5, 102.5),
+    candle(27, 102.5, 103.2, 101.8, 102.7),
+    candle(28, 102.7, 103.4, 102.1, 102.9),
+    candle(29, 102.9, 103, 75, 80),
+  );
+
+  const decision = decisionForExecution(execution);
+  const shift = decision.checklist.find((item) => item.label === "Shift of gears");
+
+  assert(shift, "shift-of-gears checklist item should exist");
+  assert.strictEqual(decision.phase, "SHIFT OF GEARS", "failed continuation through demand stop should flip into shift-of-gears phase");
+  assert.strictEqual(decision.label, "STATUS: WAIT FOR SELL", "failed bullish continuation should reset toward a sell indication");
+  assert.strictEqual(shift.ok, false, "shift-of-gears checklist should fail while the bot is resetting direction");
+  assert(shift.text.includes("fresh bearish indication"), "shift text should explain the new opposing indication");
+}
+
+function testNoHistoricalTargetAbortsBuy() {
+  const decision = decisionForExecutionWithDaily(executionWithZoneTap(true), d1BullishNoHistoricalTarget());
+  const targetFilter = decision.checklist.find((item) => item.label === "Consolidation/ATH filter");
+
+  assert(targetFilter, "Consolidation/ATH filter checklist item should exist");
+  assert.strictEqual(decision.phase, "NO TARGET FILTER", "near available-history high should use no-target filter");
+  assert.strictEqual(decision.label, "STATUS: WAIT", "no-target filter must not become BUY");
+  assert.strictEqual(targetFilter.ok, false, "no-target filter should fail when no structural target is available");
+  assert(targetFilter.text.includes("skip if there is no clean structural target"), "filter should explain the no-target abort rule");
 }
 
 function testNewestZoneOnly() {
@@ -431,6 +486,8 @@ function testWebsiteUsesTwentyFourHourTimeOnly() {
 
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
+testShiftOfGearsFlipsAfterFailedContinuation();
+testNoHistoricalTargetAbortsBuy();
 testNewestZoneOnly();
 testRangeFallbackUsesStrictOneToOneRisk();
 testAPlusRequiresWickOnlyZoneTap();
