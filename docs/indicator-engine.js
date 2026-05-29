@@ -692,10 +692,11 @@
     const newestZone = execution.zones[0] || null;
     const newestZoneInvalidated = Boolean(newestZone?.invalidated);
     const exceptions = analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone });
-    const counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && exceptions.counterTrend && !exceptions.counterBreakReady;
+    const sessionBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && !session.ok;
+    const counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && session.ok && exceptions.counterTrend && !exceptions.counterBreakReady;
     const counterTrendStrictRisk = exceptions.counterTrend && exceptions.counterBreakReady;
-    const alignedBuy = rawAlignedBuy && continuationConfirmed && (!exceptions.counterTrend || exceptions.counterBreakReady);
-    const alignedSell = rawAlignedSell && continuationConfirmed && (!exceptions.counterTrend || exceptions.counterBreakReady);
+    const alignedBuy = rawAlignedBuy && continuationConfirmed && session.ok && (!exceptions.counterTrend || exceptions.counterBreakReady);
+    const alignedSell = rawAlignedSell && continuationConfirmed && session.ok && (!exceptions.counterTrend || exceptions.counterBreakReady);
 
     let className = "wait";
     let label = "STATUS: WAIT";
@@ -721,6 +722,11 @@
       label = bias.direction === "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
       phase = "CONTINUATION GATE";
       note = "Supply/demand trigger formed, but ICC needs price back across the Primary Indication Level before BUY/SELL.";
+    } else if (sessionBlocked) {
+      className = "caution";
+      label = bias.direction === "bullish" ? "STATUS: WAIT SESSION BUY" : "STATUS: WAIT SESSION SELL";
+      phase = "SESSION GATE";
+      note = "The setup is formed, but the document prefers London or New York volume. Wait for the active session window before BUY/SELL.";
     } else if (counterTrendBlocked) {
       className = "caution";
       label = bias.direction === "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
@@ -803,7 +809,7 @@
       checklist: [
         { label: "ICC phase", ok: phase !== "BASELINE SCAN", text: `${phase}: ${note}` },
         { label: "Top-down story", ok: d1Bias.direction === "neutral" || d1Bias.direction === bias.direction || bias.direction === "neutral", text: `Daily ${d1Bias.direction}, 4H ${h4Bias.direction}, 1H ${h1Bias.direction}, 30M ${m30Bias.direction}, 15M ${m15Bias.direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.` },
-        { label: "Trading session", ok: session.ok, text: session.text },
+        { label: "Trading session", ok: session.ok, text: session.ok ? session.text : `${session.text} BUY/SELL is gated until London or New York volume.` },
         { label: "4H/1H bias", ok: bias.direction !== "neutral", text: `${bias.reason} Indication level: ${indicationLevel ?? "-"}.` },
         { label: "No-trade zone", ok: indicationLevel !== null || rangeHigh === null || rangeLow === null, text: rangeHigh !== null && rangeLow !== null ? `Baseline range is ${rangeLow}-${rangeHigh}. Body-close outside this range creates the Primary Indication Level; wicks alone do not count on HTF.` : "Waiting for enough HTF swing structure to define the baseline no-trade zone. Body-close outside this range creates the Primary Indication Level; wicks alone do not count on HTF." },
         { label: "Primary indication reclaim", ok: continuationConfirmed || bias.direction === "neutral", text: indicationLevel === null ? "No Primary Indication Level yet. Wait for an HTF body-close breakout first." : continuationConfirmed ? `Price is back across ${indicationLevel} in the ${bias.direction} direction.` : `Price has not reclaimed ${indicationLevel}; no continuation entry yet.` },

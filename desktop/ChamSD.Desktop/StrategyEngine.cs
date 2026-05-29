@@ -54,10 +54,11 @@ public sealed class StrategyEngine
         var newestZone = execution.Zones.FirstOrDefault();
         var newestZoneInvalidated = newestZone?.Invalidated == true;
         var exceptions = AnalyzeExceptions(executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone);
-        var counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && exceptions.CounterTrend && !exceptions.CounterBreakReady;
+        var sessionBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && !session.Ok;
+        var counterTrendBlocked = (rawAlignedBuy || rawAlignedSell) && continuationConfirmed && session.Ok && exceptions.CounterTrend && !exceptions.CounterBreakReady;
         var counterTrendStrictRisk = exceptions.CounterTrend && exceptions.CounterBreakReady;
-        var alignedBuy = rawAlignedBuy && continuationConfirmed && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
-        var alignedSell = rawAlignedSell && continuationConfirmed && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
+        var alignedBuy = rawAlignedBuy && continuationConfirmed && session.Ok && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
+        var alignedSell = rawAlignedSell && continuationConfirmed && session.Ok && (!exceptions.CounterTrend || exceptions.CounterBreakReady);
 
         var className = "wait";
         var label = "STATUS: WAIT";
@@ -88,6 +89,13 @@ public sealed class StrategyEngine
             label = bias.Direction == "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
             phase = "CONTINUATION GATE";
             note = "Supply/demand trigger formed, but ICC needs price back across the Primary Indication Level before BUY/SELL.";
+        }
+        else if (sessionBlocked)
+        {
+            className = "caution";
+            label = bias.Direction == "bullish" ? "STATUS: WAIT SESSION BUY" : "STATUS: WAIT SESSION SELL";
+            phase = "SESSION GATE";
+            note = "The setup is formed, but the document prefers London or New York volume. Wait for the active session window before BUY/SELL.";
         }
         else if (counterTrendBlocked)
         {
@@ -196,7 +204,7 @@ public sealed class StrategyEngine
                     Ok = d1Bias.Direction == "neutral" || d1Bias.Direction == bias.Direction || bias.Direction == "neutral",
                     Text = $"Daily {d1Bias.Direction}, 4H {h4Bias.Direction}, 1H {h1Bias.Direction}, 30M {m30Bias.Direction}, 15M {m15Bias.Direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.",
                 },
-                new ChecklistItem { Label = "Trading session", Ok = session.Ok, Text = session.Text },
+                new ChecklistItem { Label = "Trading session", Ok = session.Ok, Text = session.Ok ? session.Text : $"{session.Text} BUY/SELL is gated until London or New York volume." },
                 new ChecklistItem { Label = "4H/1H bias", Ok = bias.Direction != "neutral", Text = $"{bias.Reason} Indication level: {FormatNullable(indicationLevel)}." },
                 new ChecklistItem
                 {

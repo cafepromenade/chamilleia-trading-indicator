@@ -7,6 +7,7 @@ tests.KeepsOnlyNewestZone();
 tests.RangeFallbackUsesStrictOneToOneRisk();
 tests.APlusRequiresWickOnlyZoneTap();
 tests.CounterTrendNeedsStrongFullBodyBreakAndStrictRisk();
+tests.SessionGateBlocksBuyOutsidePreferredWindows();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
@@ -20,6 +21,8 @@ Console.WriteLine("desktop strategy tests passed");
 
 internal sealed class DesktopStrategyTests
 {
+    private const long ActiveSessionBase = 1700051700;
+    private const long OutsideSessionBase = 1700076900;
     private readonly StrategyEngine _engine = new();
 
     public void PrimaryIndicationGateBlocksBuyBeforeReclaim()
@@ -162,6 +165,33 @@ internal sealed class DesktopStrategyTests
         Assert(strongCounterTrend.Risk.ScaleOut == "100% at 1:1", "counter-trend exception must fully exit at 1:1");
         Assert(strongCounterTrend.Risk.TargetTwo is null, "counter-trend exception must not create a runner target");
         Assert(strongCounterTrend.Risk.Text.Contains("no runner", StringComparison.OrdinalIgnoreCase), "counter-trend risk text must say no runner");
+    }
+
+    public void SessionGateBlocksBuyOutsidePreferredWindows()
+    {
+        var bullish = HtfBullish();
+        var activeSession = _engine.CalculateStrategyDecision(
+            ExecutionWithZoneTap(tapIsWickOnly: true),
+            bullish,
+            bullish,
+            bullish,
+            bullish,
+            bullish);
+        var outsidePreferredSession = _engine.CalculateStrategyDecision(
+            OutsideSession(ExecutionWithZoneTap(tapIsWickOnly: true)),
+            bullish,
+            bullish,
+            bullish,
+            bullish,
+            bullish);
+        var sessionChecklist = Checklist(outsidePreferredSession, "Trading session");
+
+        Assert(activeSession.Label == "STATUS: A+ BUY", "active London/New York session should allow the valid setup");
+        Assert(outsidePreferredSession.Phase == "SESSION GATE", "outside preferred sessions should use the session gate");
+        Assert(outsidePreferredSession.Label == "STATUS: WAIT SESSION BUY", "outside preferred sessions must not become BUY");
+        Assert(outsidePreferredSession.ClassName == "caution", "session-gated setup should use caution coloring");
+        Assert(!sessionChecklist.Ok, "session checklist should fail outside London/New York");
+        Assert(sessionChecklist.Text.Contains("gated until London or New York", StringComparison.OrdinalIgnoreCase), "session checklist should explain why BUY/SELL is blocked");
     }
 
     public void OpenCodeUsesOnlyFreeModelLadder()
@@ -362,6 +392,13 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         return bars;
     }
 
+    private static List<MarketCandle> OutsideSession(IReadOnlyList<MarketCandle> candles)
+    {
+        return candles
+            .Select((bar, index) => bar with { Time = DateTimeOffset.FromUnixTimeSeconds(OutsideSessionBase + index * 300) })
+            .ToList();
+    }
+
     private static List<MarketCandle> RangingMarketAtSupport()
     {
         var bars = new List<MarketCandle>();
@@ -406,7 +443,7 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         var bars = Filler(34, 95);
         bars.AddRange(new[]
         {
-            Candle(34, 97, 101, 96, 100),
+            Candle(34, 97, 120, 96, 100),
             Candle(35, 98, 99, 97, 98),
             Candle(36, 96, 97, 95, 96),
             Candle(37, 98, 99, 97, 98),
@@ -441,7 +478,7 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
     private static MarketCandle Candle(int index, double open, double high, double low, double close, double volume = 1000)
     {
         return new MarketCandle(
-            DateTimeOffset.FromUnixTimeSeconds(1700000000 + index * 300),
+            DateTimeOffset.FromUnixTimeSeconds(ActiveSessionBase + index * 300),
             open,
             high,
             low,

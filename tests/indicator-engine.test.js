@@ -14,15 +14,25 @@ vm.runInContext(code, context);
 const engine = context.window.ChamilleiaEngine;
 assert(engine, "ChamilleiaEngine should be exposed on window");
 
+const ACTIVE_SESSION_BASE = 1700051700;
+const OUTSIDE_SESSION_BASE = 1700076900;
+
 function candle(index, open, high, low, close, volume = 1000) {
   return {
-    time: 1700000000 + index * 300,
+    time: ACTIVE_SESSION_BASE + index * 300,
     open,
     high,
     low,
     close,
     volume,
   };
+}
+
+function outsideSession(candles) {
+  return candles.map((bar, index) => ({
+    ...bar,
+    time: OUTSIDE_SESSION_BASE + index * 300,
+  }));
 }
 
 function filler(count, base = 100) {
@@ -33,7 +43,7 @@ function filler(count, base = 100) {
 function htfBullish() {
   const bars = filler(34, 95);
   bars.push(
-    candle(34, 97, 101, 96, 100),
+    candle(34, 97, 120, 96, 100),
     candle(35, 98, 99, 97, 98),
     candle(36, 96, 97, 95, 96),
     candle(37, 98, 99, 97, 98),
@@ -281,6 +291,34 @@ function testCounterTrendNeedsStrongFullBodyBreakAndStrictRisk() {
   assert(strongCounterTrend.risk.text.includes("no runner"), "counter-trend risk text must say no runner");
 }
 
+function testSessionGateBlocksBuyOutsidePreferredWindows() {
+  const bullish = htfBullish();
+  const activeSession = engine.calculateStrategyDecision({
+    executionCandles: executionWithZoneTap(true),
+    m15Candles: bullish,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles: bullish,
+  });
+  const outsidePreferredSession = engine.calculateStrategyDecision({
+    executionCandles: outsideSession(executionWithZoneTap(true)),
+    m15Candles: bullish,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles: bullish,
+  });
+  const sessionChecklist = outsidePreferredSession.checklist.find((item) => item.label === "Trading session");
+
+  assert.strictEqual(activeSession.label, "STATUS: A+ BUY", "active London/New York session should allow the valid setup");
+  assert.strictEqual(outsidePreferredSession.phase, "SESSION GATE", "outside preferred sessions should use the session gate");
+  assert.strictEqual(outsidePreferredSession.label, "STATUS: WAIT SESSION BUY", "outside preferred sessions must not become BUY");
+  assert.strictEqual(outsidePreferredSession.className, "caution", "session-gated setup should use caution coloring");
+  assert(sessionChecklist && !sessionChecklist.ok, "session checklist should fail outside London/New York");
+  assert(sessionChecklist.text.includes("gated until London or New York"), "session checklist should explain why BUY/SELL is blocked");
+}
+
 function testPineIndicatorIsPriceActionOnly() {
   assert(!/ta\.ema|useEmaTrend|Trend EMA/i.test(pineCode), "Pine indicator must not use EMA trend filtering");
   assert(/array\.size\(zones\) > 1/.test(pineCode), "Pine indicator should keep only the newest zone");
@@ -343,6 +381,7 @@ testNewestZoneOnly();
 testRangeFallbackUsesStrictOneToOneRisk();
 testAPlusRequiresWickOnlyZoneTap();
 testCounterTrendNeedsStrongFullBodyBreakAndStrictRisk();
+testSessionGateBlocksBuyOutsidePreferredWindows();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();
