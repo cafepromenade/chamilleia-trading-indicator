@@ -13,7 +13,7 @@ namespace ChamSD_Desktop;
 
 public sealed partial class MainPage : Page
 {
-    private const string PredictionModelLabel = "deepseek-v4 free";
+    private const string PredictionModelLabel = OpenCodeThinkingService.DisplayModelLabel;
 
     private static readonly IReadOnlyList<MarketConfig> Markets =
     [

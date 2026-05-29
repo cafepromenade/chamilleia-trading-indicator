@@ -404,7 +404,7 @@
                                                 x:Name="PredictionModelText"
                                                 Grid.Column="1"
                                                 Foreground="#596579"
-                                                Text="deepseek-v4 free"
+                                                Text="free model auto"
                                                 TextWrapping="Wrap" />
                                         </Grid>
                                         <Grid Grid.Row="1" RowSpacing="8" ColumnSpacing="8">

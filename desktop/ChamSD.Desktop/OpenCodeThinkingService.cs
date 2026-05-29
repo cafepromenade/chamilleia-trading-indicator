@@ -5,10 +5,53 @@ namespace ChamSD_Desktop;
 
 public sealed class OpenCodeThinkingService
 {
-    private const string FreePredictionModel = "opencode/deepseek-v4-flash-free";
+    public const string DisplayModelLabel = "free model auto";
+
+    private static readonly IReadOnlyList<string> FreePredictionModels =
+    [
+        "opencode/deepseek-v4-flash-free",
+        "opencode/mimo-v2.5-free",
+        "opencode/nemotron-3-super-free",
+    ];
+
     private const int MaxOutputLength = 5000;
 
     public async Task<string> ThinkAsync(string prompt, CancellationToken cancellationToken)
+    {
+        var failures = new List<string>();
+        foreach (var model in FreePredictionModels)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var result = await RunModelAsync(model, prompt, cancellationToken);
+                if (IsUsableModelOutput(result))
+                {
+                    return $"MODEL: {ShortModelName(model)}{Environment.NewLine}{result}";
+                }
+
+                failures.Add($"{ShortModelName(model)} returned no usable prediction.");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{ShortModelName(model)} failed: {ex.Message}");
+            }
+        }
+
+        var failureText = string.Join(" ", failures);
+        return $"""
+THINKING: OpenCode tried the free model ladder, but none returned a clean answer. {failureText}
+PREDICTION: Keep the current bot status until a free OpenCode model answers.
+INVALIDATION: No extra AI invalidation was produced; use the built-in strategy engine invalidation rules.
+FINAL BOT READ: STATUS: WAIT
+""";
+    }
+
+    private static async Task<string> RunModelAsync(string model, string prompt, CancellationToken cancellationToken)
     {
         var opencodePath = FindOpenCodeScript();
         var startInfo = new ProcessStartInfo
@@ -25,7 +68,7 @@ public sealed class OpenCodeThinkingService
         {
             startInfo.ArgumentList.Add("run");
             startInfo.ArgumentList.Add("-m");
-            startInfo.ArgumentList.Add(FreePredictionModel);
+            startInfo.ArgumentList.Add(model);
             startInfo.ArgumentList.Add(prompt);
         }
         else
@@ -37,17 +80,32 @@ public sealed class OpenCodeThinkingService
             startInfo.ArgumentList.Add(opencodePath);
             startInfo.ArgumentList.Add("run");
             startInfo.ArgumentList.Add("-m");
-            startInfo.ArgumentList.Add(FreePredictionModel);
+            startInfo.ArgumentList.Add(model);
             startInfo.ArgumentList.Add(prompt);
         }
 
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start opencode.");
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
+        using var attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        attemptTimeout.CancelAfter(TimeSpan.FromSeconds(24));
 
-        var output = await outputTask;
-        var error = await errorTask;
+        try
+        {
+            var outputTask = process.StandardOutput.ReadToEndAsync(attemptTimeout.Token);
+            var errorTask = process.StandardError.ReadToEndAsync(attemptTimeout.Token);
+            await process.WaitForExitAsync(attemptTimeout.Token);
+            var output = await outputTask;
+            var error = await errorTask;
+            return CleanProcessResult(process.ExitCode, output, error, model);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            TryKill(process);
+            throw new TimeoutException("timed out after 24 seconds.");
+        }
+    }
+
+    private static string CleanProcessResult(int exitCode, string output, string error, string model)
+    {
         var text = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(output))
         {
@@ -59,19 +117,49 @@ public sealed class OpenCodeThinkingService
             text.AppendLine(error.Trim());
         }
 
-        if (process.ExitCode != 0)
+        if (exitCode != 0)
         {
-            text.Insert(0, $"opencode exited with code {process.ExitCode}.{Environment.NewLine}");
+            text.Insert(0, $"opencode exited with code {exitCode}.{Environment.NewLine}");
         }
 
         var result = StripAnsi(text.ToString()).Trim();
         if (result.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase) ||
             result.Contains("Authentication Fails", StringComparison.OrdinalIgnoreCase))
         {
-            return $"OpenCode is installed, but the free model {FreePredictionModel} is not authorized. Run opencode providers login, then press Predict again.";
+            throw new InvalidOperationException($"{model} is not authorized. Run opencode providers login, then press Predict again.");
         }
 
         return result.Length > MaxOutputLength ? result[..MaxOutputLength] + Environment.NewLine + "[truncated]" : result;
+    }
+
+    private static bool IsUsableModelOutput(string text)
+    {
+        return !string.IsNullOrWhiteSpace(text) &&
+            !text.Contains("opencode exited with code", StringComparison.OrdinalIgnoreCase) &&
+            !text.Contains("Error:", StringComparison.OrdinalIgnoreCase) &&
+            (text.Contains("THINKING", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("PREDICTION", StringComparison.OrdinalIgnoreCase) ||
+                text.Trim().Length > 20);
+    }
+
+    private static string ShortModelName(string model)
+    {
+        var slash = model.LastIndexOf('/');
+        return slash >= 0 ? model[(slash + 1)..] : model;
+    }
+
+    private static void TryKill(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch
+        {
+        }
     }
 
     private static string? FindOpenCodeScript()
