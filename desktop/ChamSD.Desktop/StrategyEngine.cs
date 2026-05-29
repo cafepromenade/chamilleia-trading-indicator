@@ -42,8 +42,9 @@ public sealed class StrategyEngine
         var rangeFallback = bias.Direction == "neutral" && rangeHigh is not null && rangeLow is not null && rangeSpan > 0;
         var nearSupport = rangeFallback && rangeBuffer is not null && latest.Close <= rangeLow + rangeBuffer;
         var nearResistance = rangeFallback && rangeBuffer is not null && latest.Close >= rangeHigh - rangeBuffer;
-        var newestZoneInvalidated = execution.Zones.FirstOrDefault()?.Invalidated == true;
-        var exceptions = AnalyzeExceptions(executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZoneInvalidated);
+        var newestZone = execution.Zones.FirstOrDefault();
+        var newestZoneInvalidated = newestZone?.Invalidated == true;
+        var exceptions = AnalyzeExceptions(executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone);
 
         var className = "wait";
         var label = "STATUS: WAIT";
@@ -52,7 +53,14 @@ public sealed class StrategyEngine
             ? "No clean 4H or 1H direction. Wait."
             : $"Bias is {bias.Direction.ToUpperInvariant()} from {bias.Source}. Wait for a 5M aligned trigger.";
 
-        if (exceptions.Consolidation || exceptions.NoHistoricalTarget)
+        if (exceptions.ShiftOfGears)
+        {
+            className = "caution";
+            label = exceptions.ShiftDirection == "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
+            phase = "SHIFT OF GEARS";
+            note = "Continuation failed through the stop/pullback extreme. Reset to the opposing ICC indication and wait for correction plus confirmation.";
+        }
+        else if (exceptions.Consolidation || exceptions.NoHistoricalTarget)
         {
             className = "caution";
             label = "STATUS: WAIT";
@@ -125,6 +133,7 @@ public sealed class StrategyEngine
         if (exceptions.MinorResetReady) confidence += 8;
         if (exceptions.CounterBreakReady) confidence += 6;
         if (exceptions.Consolidation || exceptions.NoHistoricalTarget) confidence = Math.Min(confidence, 20);
+        if (exceptions.ShiftOfGears) confidence = Math.Min(confidence, 30);
         if (newestZoneInvalidated) confidence = Math.Min(confidence, 35);
         if (conflict) confidence = Math.Min(confidence, 25);
         confidence = Math.Clamp(confidence, 0, 100);
@@ -204,6 +213,14 @@ public sealed class StrategyEngine
                     Text = newestZoneInvalidated
                         ? exceptions.MinorResetReady ? "Zone failed, but minor structure is rebuilding in the HTF direction." : "Do not jump to the next zone. Wait for a stair-step minor break of structure."
                         : "No failed zone needs a minor-BOS reset right now.",
+                },
+                new ChecklistItem
+                {
+                    Label = "Shift of gears",
+                    Ok = !exceptions.ShiftOfGears,
+                    Text = exceptions.ShiftOfGears
+                        ? $"Continuation failed aggressively through the stop/pullback extreme. Treat this as a fresh {exceptions.ShiftDirection} indication, not an immediate trade."
+                        : "No failed continuation has crossed the stop/pullback extreme.",
                 },
                 new ChecklistItem
                 {
@@ -530,13 +547,17 @@ public sealed class StrategyEngine
         BiasChoice bias,
         HtfBias d1Bias,
         HtfBias m15Bias,
-        bool newestZoneInvalidated)
+        Zone? newestZone)
     {
         var recent = executionCandles.TakeLast(24).ToList();
         var recentHigh = recent.Max(candle => candle.High);
         var recentLow = recent.Min(candle => candle.Low);
         var recentSpan = recentHigh - recentLow;
         var avgRange = recent.Average(candle => candle.High - candle.Low);
+        var lastCandle = executionCandles[^1];
+        var lastRange = lastCandle.High - lastCandle.Low;
+        var aggressiveFailure = avgRange > 0 && lastRange > avgRange * 1.2;
+        var newestZoneInvalidated = newestZone?.Invalidated == true;
         var consolidation = recent.Count >= 20 && recentSpan < avgRange * 5 && !latest.BuyTrigger && !latest.SellTrigger;
         var historyHigh = d1Candles.Max(candle => candle.High);
         var historyLow = d1Candles.Min(candle => candle.Low);
@@ -551,6 +572,10 @@ public sealed class StrategyEngine
         var counterBreakReady = counterTrend && (
             bias.Direction == "bullish" && latest.Bull && m15Bias.Direction == "bullish" ||
             bias.Direction == "bearish" && latest.Bear && m15Bias.Direction == "bearish");
+        var bullishFailedThroughStop = newestZoneInvalidated && newestZone?.IsDemand == true && bias.Direction == "bullish" && latest.Bear && latest.Close < newestZone.Bot;
+        var bearishFailedThroughStop = newestZoneInvalidated && newestZone?.IsDemand == false && bias.Direction == "bearish" && latest.Bull && latest.Close > newestZone.Top;
+        var shiftOfGears = aggressiveFailure && (bullishFailedThroughStop || bearishFailedThroughStop);
+        var shiftDirection = bullishFailedThroughStop ? "bearish" : bearishFailedThroughStop ? "bullish" : "neutral";
 
         return new ExceptionRead(
             consolidation,
@@ -559,7 +584,9 @@ public sealed class StrategyEngine
             noHistoricalTarget,
             minorResetReady,
             counterTrend,
-            counterBreakReady);
+            counterBreakReady,
+            shiftOfGears,
+            shiftDirection);
     }
 
     private static (bool Ok, string Text) GetSessionContext(DateTimeOffset candleTime)
@@ -749,7 +776,9 @@ public sealed class StrategyEngine
         bool NoHistoricalTarget,
         bool MinorResetReady,
         bool CounterTrend,
-        bool CounterBreakReady);
+        bool CounterBreakReady,
+        bool ShiftOfGears,
+        string ShiftDirection);
 
     private sealed record WorkingZone
     {

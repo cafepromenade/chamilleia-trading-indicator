@@ -451,12 +451,16 @@
       : "Aggressive entry would mean pressing inside the zone; safest rule waits for candle close and next-candle break.";
   }
 
-  function analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZoneInvalidated }) {
+  function analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone }) {
     const recent = executionCandles.slice(-24);
     const recentHigh = Math.max(...recent.map((candle) => candle.high));
     const recentLow = Math.min(...recent.map((candle) => candle.low));
     const recentSpan = recentHigh - recentLow;
     const avgRange = recent.reduce((sum, candle) => sum + (candle.high - candle.low), 0) / Math.max(1, recent.length);
+    const lastCandle = executionCandles[executionCandles.length - 1];
+    const lastRange = lastCandle.high - lastCandle.low;
+    const aggressiveFailure = avgRange > 0 && lastRange > avgRange * 1.2;
+    const newestZoneInvalidated = Boolean(newestZone?.invalidated);
     const consolidation = recent.length >= 20 && recentSpan < avgRange * 5 && !latest.buyTrigger && !latest.sellTrigger;
     const historyHigh = Math.max(...d1Candles.map((candle) => candle.high));
     const historyLow = Math.min(...d1Candles.map((candle) => candle.low));
@@ -473,6 +477,10 @@
       (bias.direction === "bullish" && latest.bull && m15Bias.direction === "bullish") ||
       (bias.direction === "bearish" && latest.bear && m15Bias.direction === "bearish")
     );
+    const bullishFailedThroughStop = newestZoneInvalidated && newestZone?.isDemand && bias.direction === "bullish" && latest.bear && latest.close < newestZone.bot;
+    const bearishFailedThroughStop = newestZoneInvalidated && newestZone && !newestZone.isDemand && bias.direction === "bearish" && latest.bull && latest.close > newestZone.top;
+    const shiftOfGears = aggressiveFailure && (bullishFailedThroughStop || bearishFailedThroughStop);
+    const shiftDirection = bullishFailedThroughStop ? "bearish" : bearishFailedThroughStop ? "bullish" : "neutral";
 
     return {
       consolidation,
@@ -482,6 +490,8 @@
       minorResetReady,
       counterTrend,
       counterBreakReady,
+      shiftOfGears,
+      shiftDirection,
     };
   }
 
@@ -509,8 +519,9 @@
     const rangeFallback = bias.direction === "neutral" && rangeHigh !== null && rangeLow !== null && rangeSpan > 0;
     const nearSupport = Boolean(rangeFallback && latest.close <= rangeLow + rangeBuffer);
     const nearResistance = Boolean(rangeFallback && latest.close >= rangeHigh - rangeBuffer);
-    const newestZoneInvalidated = Boolean(execution.zones[0]?.invalidated);
-    const exceptions = analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZoneInvalidated });
+    const newestZone = execution.zones[0] || null;
+    const newestZoneInvalidated = Boolean(newestZone?.invalidated);
+    const exceptions = analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone });
 
     let className = "wait";
     let label = "STATUS: WAIT";
@@ -519,7 +530,12 @@
       ? "No clean 4H or 1H direction. Wait."
       : `Bias is ${bias.direction.toUpperCase()} from ${bias.source}. Wait for a 5M aligned trigger.`;
 
-    if (exceptions.consolidation || exceptions.noHistoricalTarget) {
+    if (exceptions.shiftOfGears) {
+      className = "caution";
+      label = exceptions.shiftDirection === "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
+      phase = "SHIFT OF GEARS";
+      note = "Continuation failed through the stop/pullback extreme. Reset to the opposing ICC indication and wait for correction plus confirmation.";
+    } else if (exceptions.consolidation || exceptions.noHistoricalTarget) {
       className = "caution";
       label = "STATUS: WAIT";
       phase = exceptions.consolidation ? "CONSOLIDATION FILTER" : "NO TARGET FILTER";
@@ -576,6 +592,7 @@
     if (exceptions.minorResetReady) confidence += 8;
     if (exceptions.counterBreakReady) confidence += 6;
     if (exceptions.consolidation || exceptions.noHistoricalTarget) confidence = Math.min(confidence, 20);
+    if (exceptions.shiftOfGears) confidence = Math.min(confidence, 30);
     if (newestZoneInvalidated) confidence = Math.min(confidence, 35);
     if (conflict) confidence = Math.min(confidence, 25);
     confidence = Math.max(0, Math.min(100, confidence));
@@ -613,6 +630,7 @@
         { label: "Stop/exit plan", ok: risk.stopWithinLimit, text: risk.text },
         { label: "Invalidation", ok: !newestZoneInvalidated, text: newestZoneInvalidated ? "Newest zone was body-closed through. Wait for minor structure reset." : "No body-close invalidation on the newest tracked zone." },
         { label: "Minor BOS reset", ok: !newestZoneInvalidated || exceptions.minorResetReady, text: newestZoneInvalidated ? (exceptions.minorResetReady ? "Zone failed, but minor structure is rebuilding in the HTF direction." : "Do not jump to the next zone. Wait for a stair-step minor break of structure.") : "No failed zone needs a minor-BOS reset right now." },
+        { label: "Shift of gears", ok: !exceptions.shiftOfGears, text: exceptions.shiftOfGears ? `Continuation failed aggressively through the stop/pullback extreme. Treat this as a fresh ${exceptions.shiftDirection} indication, not an immediate trade.` : "No failed continuation has crossed the stop/pullback extreme." },
         { label: "Range fallback", ok: nearSupport || nearResistance || !rangeFallback, text: rangeFallback ? `Range floor ${rangeLow}, ceiling ${rangeHigh}. ${nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait."}` : "Not using support/resistance fallback while HTF bias is active." },
         { label: "Consolidation/ATH filter", ok: !exceptions.consolidation && !exceptions.noHistoricalTarget, text: exceptions.consolidation ? "Random consolidation detected from recent 5M compression. Abort trend scanning until price escapes." : exceptions.noHistoricalTarget ? `Near available daily-history edge (${exceptions.historyLow}-${exceptions.historyHigh}); skip if there is no clean structural target.` : "Not boxed in and not at the available daily-history edge." },
         { label: "Counter trend-line break", ok: !exceptions.counterTrend || exceptions.counterBreakReady, text: exceptions.counterTrend ? (exceptions.counterBreakReady ? "Counter-trend idea has a full structure break in the active direction; keep target strict 1:1." : "Daily context is opposite the active bias. Need a strong body-close break before any counter-trend idea.") : "Not a counter-trend setup against Daily context." },
