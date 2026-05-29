@@ -5,6 +5,8 @@ tests.PrimaryIndicationGateBlocksBuyBeforeReclaim();
 tests.FailedDemandWaitsForSecondHigherLowReset();
 tests.KeepsOnlyNewestZone();
 tests.OpenCodeUsesOnlyFreeModelLadder();
+tests.OpenCodeTestsFreeModelsUntilOneWorks();
+await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
 tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
 tests.DesktopWindowIsFixedSize();
@@ -84,6 +86,43 @@ internal sealed class DesktopStrategyTests
             Assert(model.StartsWith("opencode/", StringComparison.OrdinalIgnoreCase), $"model {model} should use OpenCode provider routing");
             Assert(model.EndsWith("-free", StringComparison.OrdinalIgnoreCase), $"model {model} must be a free model");
         }
+    }
+
+    public async Task OpenCodeFallbackKeepsCurrentBotStatusAsync()
+    {
+        var service = new OpenCodeThinkingService((_, _, _) => Task.FromResult("Error: no prediction"));
+
+        var output = await service.ThinkAsync("live prompt", "STATUS: WAIT FOR SELL", CancellationToken.None);
+
+        Assert(output.Contains("OpenCode tried the free model ladder", StringComparison.OrdinalIgnoreCase), "fallback should explain that every free model was tested");
+        Assert(output.Contains("FINAL BOT READ: STATUS: WAIT FOR SELL", StringComparison.Ordinal), "failed OpenCode fallback should keep the live engine status");
+    }
+
+    public void OpenCodeTestsFreeModelsUntilOneWorks()
+    {
+        var attemptedModels = new List<string>();
+        var service = new OpenCodeThinkingService((model, _, _) =>
+        {
+            attemptedModels.Add(model);
+            if (attemptedModels.Count == 1)
+            {
+                throw new InvalidOperationException("first free model failed");
+            }
+
+            return Task.FromResult("""
+THINKING: Tested the next free model and it read the live structure.
+PREDICTION: Wait for the zone tap.
+INVALIDATION: Body close through the zone.
+FINAL BOT READ: STATUS: WAIT FOR BUY
+""");
+        });
+
+        var output = service.ThinkAsync("live prompt", "STATUS: WAIT", CancellationToken.None).GetAwaiter().GetResult();
+
+        Assert(attemptedModels.Count == 2, "OpenCode should keep testing free models until one works");
+        Assert(attemptedModels.All(model => model.EndsWith("-free", StringComparison.OrdinalIgnoreCase)), "OpenCode test attempts must stay on free models");
+        Assert(output.Contains("MODEL: mimo-v2.5-free", StringComparison.Ordinal), "successful output should name the working free model");
+        Assert(output.Contains("FINAL BOT READ: STATUS: WAIT FOR BUY", StringComparison.Ordinal), "successful model output should be preserved");
     }
 
     public void PredictionParserKeepsGuiCardsFilled()

@@ -15,8 +15,24 @@ public sealed class OpenCodeThinkingService
     ];
 
     private const int MaxOutputLength = 5000;
+    private readonly Func<string, string, CancellationToken, Task<string>> _runModelAsync;
 
-    public async Task<string> ThinkAsync(string prompt, CancellationToken cancellationToken)
+    public OpenCodeThinkingService()
+        : this(RunModelAsync)
+    {
+    }
+
+    public OpenCodeThinkingService(Func<string, string, CancellationToken, Task<string>> runModelAsync)
+    {
+        _runModelAsync = runModelAsync;
+    }
+
+    public Task<string> ThinkAsync(string prompt, CancellationToken cancellationToken)
+    {
+        return ThinkAsync(prompt, "STATUS: WAIT", cancellationToken);
+    }
+
+    public async Task<string> ThinkAsync(string prompt, string fallbackFinalRead, CancellationToken cancellationToken)
     {
         var failures = new List<string>();
         foreach (var model in FreePredictionModels)
@@ -24,7 +40,7 @@ public sealed class OpenCodeThinkingService
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var result = await RunModelAsync(model, prompt, cancellationToken);
+                var result = await _runModelAsync(model, prompt, cancellationToken);
                 if (IsUsableModelOutput(result))
                 {
                     return $"MODEL: {ShortModelName(model)}{Environment.NewLine}{result}";
@@ -47,7 +63,7 @@ public sealed class OpenCodeThinkingService
 THINKING: OpenCode tried the free model ladder, but none returned a clean answer. {failureText}
 PREDICTION: Keep the current bot status until a free OpenCode model answers.
 INVALIDATION: No extra AI invalidation was produced; use the built-in strategy engine invalidation rules.
-FINAL BOT READ: STATUS: WAIT
+FINAL BOT READ: {fallbackFinalRead}
 """;
     }
 

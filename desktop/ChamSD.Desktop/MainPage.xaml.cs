@@ -554,7 +554,7 @@ public sealed partial class MainPage : Page
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
-            var output = await _thinkingService.ThinkAsync(BuildThinkingPrompt(_currentMarket, _currentDecision), timeout.Token);
+            var output = await _thinkingService.ThinkAsync(BuildThinkingPrompt(_currentMarket, _currentDecision), _currentDecision.Label, timeout.Token);
             SetPredictionSections(PredictionParser.Parse(output, _currentDecision.Label), _currentDecision.ClassName);
         }
         catch (OperationCanceledException)
