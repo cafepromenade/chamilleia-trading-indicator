@@ -8,7 +8,11 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Background="#F5F7FA" Padding="14" RowSpacing="10">
+    <Grid
+        x:Name="RootGrid"
+        Background="#F5F7FA"
+        Padding="14"
+        RowSpacing="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -696,5 +700,17 @@
                         </Border>
                     </Grid>
                 </Grid>
+
+        <Border
+            x:Name="StatusFlashOverlay"
+            Grid.RowSpan="2"
+            Background="#E5B21F"
+            IsHitTestVisible="False"
+            Opacity="0"
+            RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform>
+                <CompositeTransform x:Name="StatusFlashTransform" />
+            </Border.RenderTransform>
+        </Border>
     </Grid>
 </Page>

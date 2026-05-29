@@ -155,7 +155,7 @@ public sealed partial class MainPage : Page
 
     private void SetStatus(string label, string note, string className, int confidence, string phase)
     {
-        var shouldAnimate = _lastStatusLabel is not null && _lastStatusLabel != label;
+        var shouldAnimate = _lastStatusLabel != label;
         _lastStatusLabel = label;
 
         StatusText.Text = label;
@@ -163,23 +163,25 @@ public sealed partial class MainPage : Page
         ConfidenceText.Text = $"{confidence}%";
         PhaseText.Text = phase;
 
-        var (background, border, foreground) = className switch
+        var (background, border, foreground, workspace) = className switch
         {
-            "buy" => (0xFFEAF8EFu, 0xFF1F9D55u, 0xFF145C32u),
-            "sell" => (0xFFFDECECu, 0xFFD64545u, 0xFF8F1D1Du),
-            "caution" => (0xFFFFF3CDu, 0xFFF0B429u, 0xFF7A4F00u),
-            "no-trade" => (0xFFF0F2F5u, 0xFF6B7280u, 0xFF343A46u),
-            _ => (0xFFFFF7E0u, 0xFFE5B21Fu, 0xFF7A5B00u),
+            "buy" => (0xFFEAF8EFu, 0xFF1F9D55u, 0xFF145C32u, 0xFFF1FBF5u),
+            "sell" => (0xFFFDECECu, 0xFFD64545u, 0xFF8F1D1Du, 0xFFFFF2F2u),
+            "caution" => (0xFFFFF3CDu, 0xFFF0B429u, 0xFF7A4F00u, 0xFFFFF9E8u),
+            "no-trade" => (0xFFF0F2F5u, 0xFF6B7280u, 0xFF343A46u, 0xFFF5F7FAu),
+            _ => (0xFFFFF7E0u, 0xFFE5B21Fu, 0xFF7A5B00u, 0xFFFFF9ECu),
         };
 
+        RootGrid.Background = Brush(workspace);
         StatusBar.Background = Brush(background);
         StatusBar.BorderBrush = Brush(border);
+        StatusFlashOverlay.Background = Brush(border);
         StatusText.Foreground = Brush(foreground);
         ConfidenceText.Foreground = Brush(foreground);
 
         if (shouldAnimate)
         {
-            AnimateStatusChange();
+            AnimateStatusChange(className);
         }
     }
 
@@ -227,7 +229,7 @@ public sealed partial class MainPage : Page
             className);
     }
 
-    private void AnimateStatusChange()
+    private void AnimateStatusChange(string className)
     {
         StatusBarTransform.TranslateX = 0;
         StatusBarTransform.ScaleX = 1;
@@ -235,13 +237,21 @@ public sealed partial class MainPage : Page
         ChartCanvasTransform.TranslateY = 0;
         ChartCanvasTransform.ScaleX = 1;
         ChartCanvasTransform.ScaleY = 1;
+        StatusFlashOverlay.Opacity = 0;
+        StatusFlashTransform.ScaleX = 1;
+        StatusFlashTransform.ScaleY = 1;
 
         var storyboard = new Storyboard();
-        AddDoubleAnimation(storyboard, StatusBarTransform, "TranslateX", 0, 24, 180, autoReverse: true);
-        AddDoubleAnimation(storyboard, StatusBarTransform, "ScaleX", 1, 1.035, 220, autoReverse: true);
-        AddDoubleAnimation(storyboard, StatusBarTransform, "ScaleY", 1, 1.06, 220, autoReverse: true);
-        AddDoubleAnimation(storyboard, ChartCanvasTransform, "TranslateY", 0, -12, 220, autoReverse: true);
-        AddDoubleAnimation(storyboard, ChartCanvasTransform, "ScaleY", 1, 1.025, 220, autoReverse: true);
+        var intensity = className is "buy" or "sell" ? 1.0 : className == "caution" ? 0.82 : 0.62;
+        AddDoubleAnimation(storyboard, StatusFlashOverlay, "Opacity", 0.0, 0.24 * intensity, 260, autoReverse: true);
+        AddDoubleAnimation(storyboard, StatusFlashTransform, "ScaleX", 1, 1.025, 300, autoReverse: true);
+        AddDoubleAnimation(storyboard, StatusFlashTransform, "ScaleY", 1, 1.025, 300, autoReverse: true);
+        AddDoubleAnimation(storyboard, StatusBarTransform, "TranslateX", 0, 34 * intensity, 190, autoReverse: true);
+        AddDoubleAnimation(storyboard, StatusBarTransform, "ScaleX", 1, 1.05, 240, autoReverse: true);
+        AddDoubleAnimation(storyboard, StatusBarTransform, "ScaleY", 1, 1.08, 240, autoReverse: true);
+        AddDoubleAnimation(storyboard, ChartCanvasTransform, "TranslateY", 0, -16 * intensity, 240, autoReverse: true);
+        AddDoubleAnimation(storyboard, ChartCanvasTransform, "ScaleX", 1, 1.012, 240, autoReverse: true);
+        AddDoubleAnimation(storyboard, ChartCanvasTransform, "ScaleY", 1, 1.035, 240, autoReverse: true);
         storyboard.Completed += (_, _) =>
         {
             StatusBarTransform.TranslateX = 0;
@@ -250,6 +260,9 @@ public sealed partial class MainPage : Page
             ChartCanvasTransform.TranslateY = 0;
             ChartCanvasTransform.ScaleX = 1;
             ChartCanvasTransform.ScaleY = 1;
+            StatusFlashOverlay.Opacity = 0;
+            StatusFlashTransform.ScaleX = 1;
+            StatusFlashTransform.ScaleY = 1;
         };
         storyboard.Begin();
     }
