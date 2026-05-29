@@ -19,6 +19,8 @@ tests.DesktopWindowIsFixedSize();
 tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
 tests.DesktopUsesLiveMultiTimeframeDataOnly();
 tests.DesktopUsesTwentyFourHourTimeOnly();
+await tests.WebhookSettingsPersistUnlimitedEndpointsAsync();
+tests.WebhookStatusChangeDoesNotOverwriteEndpoints();
 Console.WriteLine("desktop strategy tests passed");
 
 internal sealed class DesktopStrategyTests
@@ -377,6 +379,49 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         }
     }
 
+    public async Task WebhookSettingsPersistUnlimitedEndpointsAsync()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"chamsd-webhooks-{Guid.NewGuid():N}.json");
+        try
+        {
+            var service = new WebhookSettingsService(path);
+            var endpoints = new[]
+            {
+                NewWebhook("Webhook 1", "https://one.invalid/hook", "POST", statusChange: true),
+                NewWebhook("Webhook 2", "https://two.invalid/hook", "GET", statusChange: false),
+                NewWebhook("Webhook 3", "https://three.invalid/hook", "POST", statusChange: true),
+            };
+            endpoints[0].Headers.Add(new WebhookKeyValue { Key = "Authorization", Value = "Bearer test" });
+            endpoints[1].Values.Add(new WebhookKeyValue { Key = "chat", Value = "status" });
+
+            await service.SaveAsync(endpoints);
+            var loaded = (await service.LoadAsync()).ToList();
+
+            Assert(loaded.Count == 3, "webhook settings should persist every endpoint, not just one selected URL");
+            Assert(loaded[0].Headers.Single().Key == "Authorization", "saved webhook headers should round-trip");
+            Assert(loaded[1].Values.Single().Value == "status", "saved webhook custom values should round-trip");
+            Assert(loaded[1].Method == "GET", "GET webhook method should round-trip");
+            Assert(loaded[2].SendOnStatusChange, "status-change trigger should round-trip");
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    public void WebhookStatusChangeDoesNotOverwriteEndpoints()
+    {
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+
+        Assert(pageCode.Contains("await SendEndpointAsync(endpoint, saveEditor: false)", StringComparison.Ordinal), "automatic status-change sends must not save visible editor fields into every endpoint");
+        Assert(pageCode.Contains("await SendEndpointAsync(endpoint, saveEditor: true)", StringComparison.Ordinal), "manual webhook sends should still save the selected editor fields first");
+        Assert(pageCode.Contains("await LoadSavedWebhooksAsync()", StringComparison.Ordinal), "desktop app should load saved webhook URLs on startup");
+        Assert(pageCode.Contains("await SaveWebhookSettingsAsync()", StringComparison.Ordinal), "desktop app should persist webhook edits");
+    }
+
     private StrategyDecision DecisionForExecution(IReadOnlyList<MarketCandle> executionCandles)
     {
         var bullish = HtfBullish();
@@ -402,6 +447,18 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
             Candle(25, 96, 103, 95, 102),
         });
         return bars;
+    }
+
+    private static WebhookEndpoint NewWebhook(string name, string url, string method, bool statusChange)
+    {
+        return new WebhookEndpoint
+        {
+            Name = name,
+            Url = url,
+            Method = method,
+            Enabled = true,
+            SendOnStatusChange = statusChange,
+        };
     }
 
     private static List<MarketCandle> ExecutionWithZoneTap(bool tapIsWickOnly)

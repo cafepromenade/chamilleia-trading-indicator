@@ -24,6 +24,7 @@ public sealed partial class MainPage : Page
     private readonly MarketDataService _marketData = new();
     private readonly StrategyEngine _strategyEngine = new();
     private readonly WebhookService _webhookService = new();
+    private readonly WebhookSettingsService _webhookSettings = new();
     private readonly OpenCodeThinkingService _thinkingService = new();
     private readonly WindowsNotificationService _notificationService = new();
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(60) };
@@ -45,7 +46,11 @@ public sealed partial class MainPage : Page
         WebhookMethodComboBox.ItemsSource = new[] { "POST", "GET" };
         WebhookMethodComboBox.SelectedIndex = 0;
         WebhookList.ItemsSource = _webhooks;
-        AddDefaultWebhook();
+        Loaded += async (_, _) =>
+        {
+            await LoadSavedWebhooksAsync();
+            await LoadLiveDataAsync();
+        };
 
         _refreshTimer.Tick += async (_, _) =>
         {
@@ -56,7 +61,6 @@ public sealed partial class MainPage : Page
         };
         _refreshTimer.Start();
 
-        Loaded += async (_, _) => await LoadLiveDataAsync();
     }
 
     private async Task LoadLiveDataAsync()
@@ -460,6 +464,36 @@ public sealed partial class MainPage : Page
         LoadWebhookEditor(endpoint);
     }
 
+    private async Task LoadSavedWebhooksAsync()
+    {
+        if (_webhooks.Count > 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var saved = await _webhookSettings.LoadAsync();
+            foreach (var endpoint in saved)
+            {
+                _webhooks.Add(endpoint);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Webhook settings could not load: {ex.Message}");
+        }
+
+        if (_webhooks.Count == 0)
+        {
+            AddDefaultWebhook();
+            return;
+        }
+
+        WebhookList.SelectedIndex = 0;
+        LoadWebhookEditor(_webhooks[0]);
+    }
+
     private void LoadWebhookEditor(WebhookEndpoint? endpoint)
     {
         if (endpoint is null)
@@ -488,11 +522,23 @@ public sealed partial class MainPage : Page
         WebhookList.SelectedItem = endpoint;
     }
 
+    private async Task SaveWebhookSettingsAsync()
+    {
+        try
+        {
+            await _webhookSettings.SaveAsync(_webhooks);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Webhook settings could not save: {ex.Message}");
+        }
+    }
+
     private async Task SendStatusChangeWebhooksAsync()
     {
         foreach (var endpoint in _webhooks.Where(item => item.Enabled && item.SendOnStatusChange).ToList())
         {
-            await SendEndpointAsync(endpoint);
+            await SendEndpointAsync(endpoint, saveEditor: false);
         }
     }
 
@@ -514,7 +560,7 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async Task SendEndpointAsync(WebhookEndpoint endpoint)
+    private async Task SendEndpointAsync(WebhookEndpoint endpoint, bool saveEditor)
     {
         if (_currentDecision is null || _currentMarket is null)
         {
@@ -524,7 +570,12 @@ public sealed partial class MainPage : Page
 
         try
         {
-            SaveWebhookEditor(endpoint);
+            if (saveEditor)
+            {
+                SaveWebhookEditor(endpoint);
+                await SaveWebhookSettingsAsync();
+            }
+
             var result = await _webhookService.SendAsync(endpoint, _currentMarket, _currentDecision, CancellationToken.None);
             AppendLog(result);
         }
@@ -655,24 +706,26 @@ Checklist:
         LoadWebhookEditor(WebhookList.SelectedItem as WebhookEndpoint);
     }
 
-    private void AddWebhookButton_Click(object sender, RoutedEventArgs e)
+    private async void AddWebhookButton_Click(object sender, RoutedEventArgs e)
     {
         var endpoint = new WebhookEndpoint { Name = $"Webhook {_webhooks.Count + 1}" };
         _webhooks.Add(endpoint);
         WebhookList.SelectedItem = endpoint;
         LoadWebhookEditor(endpoint);
+        await SaveWebhookSettingsAsync();
     }
 
-    private void SaveWebhookButton_Click(object sender, RoutedEventArgs e)
+    private async void SaveWebhookButton_Click(object sender, RoutedEventArgs e)
     {
         if (WebhookList.SelectedItem is WebhookEndpoint endpoint)
         {
             SaveWebhookEditor(endpoint);
+            await SaveWebhookSettingsAsync();
             AppendLog($"{endpoint.Name}: saved.");
         }
     }
 
-    private void RemoveWebhookButton_Click(object sender, RoutedEventArgs e)
+    private async void RemoveWebhookButton_Click(object sender, RoutedEventArgs e)
     {
         if (WebhookList.SelectedItem is not WebhookEndpoint endpoint)
         {
@@ -681,13 +734,14 @@ Checklist:
 
         _webhooks.Remove(endpoint);
         WebhookList.SelectedIndex = _webhooks.Count > 0 ? 0 : -1;
+        await SaveWebhookSettingsAsync();
     }
 
     private async void SendWebhookButton_Click(object sender, RoutedEventArgs e)
     {
         if (WebhookList.SelectedItem is WebhookEndpoint endpoint)
         {
-            await SendEndpointAsync(endpoint);
+            await SendEndpointAsync(endpoint, saveEditor: true);
         }
     }
 
@@ -709,28 +763,32 @@ Checklist:
         }
     }
 
-    private void AddHeaderButton_Click(object sender, RoutedEventArgs e)
+    private async void AddHeaderButton_Click(object sender, RoutedEventArgs e)
     {
         if (WebhookList.SelectedItem is not WebhookEndpoint endpoint || string.IsNullOrWhiteSpace(HeaderKeyTextBox.Text))
         {
             return;
         }
 
+        SaveWebhookEditor(endpoint);
         endpoint.Headers.Add(new WebhookKeyValue { Key = HeaderKeyTextBox.Text.Trim(), Value = HeaderValueTextBox.Text });
         HeaderKeyTextBox.Text = string.Empty;
         HeaderValueTextBox.Text = string.Empty;
+        await SaveWebhookSettingsAsync();
     }
 
-    private void AddValueButton_Click(object sender, RoutedEventArgs e)
+    private async void AddValueButton_Click(object sender, RoutedEventArgs e)
     {
         if (WebhookList.SelectedItem is not WebhookEndpoint endpoint || string.IsNullOrWhiteSpace(ValueKeyTextBox.Text))
         {
             return;
         }
 
+        SaveWebhookEditor(endpoint);
         endpoint.Values.Add(new WebhookKeyValue { Key = ValueKeyTextBox.Text.Trim(), Value = ValueValueTextBox.Text });
         ValueKeyTextBox.Text = string.Empty;
         ValueValueTextBox.Text = string.Empty;
+        await SaveWebhookSettingsAsync();
     }
 
     private static string FormatNullablePrice(double? value) => value is null ? "-" : FormatPrice(value.Value);
