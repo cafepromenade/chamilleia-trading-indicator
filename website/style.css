@@ -63,6 +63,14 @@ h2 { font-size: 1.9rem; letter-spacing: -.01em; margin-bottom: 2rem; text-align:
 .card h3 { margin: .7rem 0 .4rem; font-size: 1.1rem; }
 .card p { color: var(--muted); font-size: .95rem; }
 
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); max-width: 860px; margin: 0 auto; }
+.card.big { padding: 2rem; }
+.card.big h3 { font-size: 1.35rem; margin: .9rem 0 .6rem; }
+.card.big a { display: inline-block; margin-top: 1rem; font-weight: 600; }
+.tag { display: inline-block; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; padding: .3rem .7rem; border-radius: 999px; font-weight: 700; }
+.tag.teal { background: rgba(45,212,191,.15); color: var(--teal); }
+.tag.red  { background: rgba(248,113,113,.15); color: var(--red); }
+
 /* steps */
 .steps { list-style: none; max-width: 720px; margin: 0 auto; display: grid; gap: 1rem; }
 .steps li { display: flex; gap: 1.2rem; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 1.3rem 1.5rem; }
