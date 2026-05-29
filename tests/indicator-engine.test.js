@@ -138,10 +138,18 @@ function testWebsiteHasDramaticStatusFlash() {
   }
 }
 
+function testWebsiteHasNoExampleOrAdClutter() {
+  const publicText = [htmlCode, statusCode, styleCode].join("\n");
+  for (const word of ["example", "sample", "demo", "mock", "fake", "advert", "sponsor"]) {
+    assert(!new RegExp(word, "i").test(publicText), `website should not contain ${word} wording`);
+  }
+}
+
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
+testWebsiteHasNoExampleOrAdClutter();
 
 console.log("indicator-engine tests passed");

@@ -8,6 +8,7 @@ tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
 tests.DesktopWindowIsFixedSize();
+tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
 Console.WriteLine("desktop strategy tests passed");
 
 internal sealed class DesktopStrategyTests
@@ -130,6 +131,15 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(windowCode.Contains("ConfigureFixedWindow()", StringComparison.Ordinal), "desktop window should configure fixed sizing on startup");
         Assert(windowCode.Contains("presenter.IsResizable = false", StringComparison.Ordinal), "desktop window should not be resizable");
         Assert(windowCode.Contains("presenter.IsMaximizable = false", StringComparison.Ordinal), "desktop window should not be maximizable");
+    }
+
+    public void DesktopUserInterfaceHasNoExampleOrAdClutter()
+    {
+        var pageXaml = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml");
+        foreach (var forbidden in new[] { ".example", "sample", "demo", "mock", "fake", "advert", "sponsor" })
+        {
+            Assert(!pageXaml.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"desktop UI should not show {forbidden} wording");
+        }
     }
 
     private StrategyDecision DecisionForExecution(IReadOnlyList<MarketCandle> executionCandles)

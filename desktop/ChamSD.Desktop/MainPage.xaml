@@ -610,7 +610,7 @@
                                                 Grid.Row="1"
                                                 Grid.ColumnSpan="2"
                                                 Header="URL"
-                                                PlaceholderText="https://your-server.example/webhook" />
+                                                PlaceholderText="Webhook URL" />
                                             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16">
                                                 <CheckBox
                                                     x:Name="WebhookEnabledCheckBox"
