@@ -31,6 +31,14 @@ extendBars  = input.int(60, "Zone extension (bars to the right)", minval=5, grou
 grpRisk     = "Risk"
 maxSlPoints = input.float(50, "Max stop-loss size (points) before tightening", minval=0, group=grpRisk)
 
+grpSession  = "Session Gate"
+london      = input.session("0300-1200", "London session", group=grpSession)
+newyork     = input.session("0930-1600", "New York session", group=grpSession)
+
+grpTopDown  = "Top-Down Gate"
+confirm15   = input.timeframe("15", "15M confirmation", group=grpTopDown)
+confirm30   = input.timeframe("30", "30M confirmation", group=grpTopDown)
+
 grpStyle    = "Style"
 demandCol   = input.color(color.new(color.teal, 80), "Demand zone fill", group=grpStyle)
 supplyCol   = input.color(color.new(color.red, 80),  "Supply zone fill", group=grpStyle)
@@ -83,6 +91,7 @@ type Zone
     bool  isDemand
     bool  invalidated
     bool  tapped
+    bool  bodyEntered
 
 var array<Zone> zones = array.new<Zone>()
 
@@ -108,7 +117,7 @@ f_addZone(bool isDemand) =>
     [t, b] = f_lastOpposite(isDemand)  // demand wants a red base candle; supply wants green
     if not na(t)
         box bx = box.new(bar_index, t, bar_index + extendBars, b, border_color=isDemand ? borderDem : borderSup, bgcolor=isDemand ? demandCol : supplyCol, border_width=1)
-        Zone z = Zone.new(bx, t, b, isDemand, false, false)
+        Zone z = Zone.new(bx, t, b, isDemand, false, false, false)
         array.unshift(zones, z)
         // Recency rule: keep only the newest zone from the latest structure break.
         while array.size(zones) > 1
@@ -130,12 +139,17 @@ if bosDown and bear and strongDown
 var float lastTapTop = na
 var float lastTapBot = na
 var bool  lastTapDem = na
+var bool  lastTapWickOnlyNoBody = false
 
 if array.size(zones) > 0
     for i = 0 to array.size(zones) - 1
         Zone z = array.get(zones, i)
         if not z.invalidated
             box.set_right(z.bx, bar_index + extendBars)
+            float bodyTop = math.max(open, close)
+            float bodyBot = math.min(open, close)
+            bool bodyTouchesZone = bodyBot <= z.top and bodyTop >= z.bot
+            bool wickOnlyTap = z.isDemand ? low <= z.top and bodyBot > z.top : high >= z.bot and bodyTop < z.bot
             // Tap: price trades into the zone.
             bool tappedNow = low <= z.top and high >= z.bot
             if tappedNow and not z.tapped
@@ -143,12 +157,17 @@ if array.size(zones) > 0
                 lastTapTop := z.top
                 lastTapBot := z.bot
                 lastTapDem := z.isDemand
+                lastTapWickOnlyNoBody := wickOnlyTap and not z.bodyEntered
                 if showLabels
                     label.new(bar_index, z.isDemand ? z.bot : z.top, z.isDemand ? "TAP ▲" : "TAP ▼", style=z.isDemand ? label.style_label_up : label.style_label_down, color=color.new(color.gray, 20), textcolor=color.white, size=size.tiny)
+            if bodyTouchesZone
+                z.bodyEntered := true
             // Invalidation: a candle BODY closes through the zone.
             bool bodyThrough = z.isDemand ? close < z.bot : close > z.top
             if bodyThrough
                 z.invalidated := true
+                if lastTapTop == z.top and lastTapBot == z.bot and lastTapDem == z.isDemand
+                    lastTapWickOnlyNoBody := false
                 box.set_bgcolor(z.bx, color.new(color.gray, 90))
                 box.set_border_style(z.bx, line.style_dashed)
 
@@ -161,12 +180,29 @@ supplyTapClose = not na(lastTapDem) and not lastTapDem and high[1] <= lastTapTop
 buyTrigger  = demandTapClose and high > high[1] and bull
 sellTrigger = supplyTapClose and low  < low[1]  and bear
 
-plotshape(buyTrigger,  title="Buy entry",  style=shape.triangleup,   location=location.belowbar, color=color.teal, size=size.small, text="BUY")
-plotshape(sellTrigger, title="Sell entry", style=shape.triangledown, location=location.abovebar, color=color.red,  size=size.small, text="SELL")
+// Gate entries by the documented high-volume sessions and 15M/30M confirmation.
+inLondon = not na(time(timeframe.period, london))
+inNewYork = not na(time(timeframe.period, newyork))
+sessionOk = inLondon or inNewYork
+dir15 = request.security(syminfo.tickerid, confirm15, structureDir, lookahead=barmerge.lookahead_off)
+dir30 = request.security(syminfo.tickerid, confirm30, structureDir, lookahead=barmerge.lookahead_off)
+lowerTimeframesOppose = (bull and (dir15 == "bearish" or dir30 == "bearish")) or (bear and (dir15 == "bullish" or dir30 == "bullish"))
+
+buyReady = buyTrigger and sessionOk and not lowerTimeframesOppose
+sellReady = sellTrigger and sessionOk and not lowerTimeframesOppose
+buySessionBlocked = buyTrigger and not sessionOk
+sellSessionBlocked = sellTrigger and not sessionOk
+buyConfirmBlocked = buyTrigger and sessionOk and lowerTimeframesOppose
+sellConfirmBlocked = sellTrigger and sessionOk and lowerTimeframesOppose
+
+plotshape(buyReady,  title="Buy entry",  style=shape.triangleup,   location=location.belowbar, color=color.teal, size=size.small, text="BUY")
+plotshape(sellReady, title="Sell entry", style=shape.triangledown, location=location.abovebar, color=color.red,  size=size.small, text="SELL")
+plotshape(buySessionBlocked or sellSessionBlocked, title="Session-gated entry", style=shape.circle, location=location.top, color=color.orange, size=size.tiny, text="SESSION")
+plotshape(buyConfirmBlocked or sellConfirmBlocked, title="Top-down-gated entry", style=shape.circle, location=location.top, color=color.yellow, size=size.tiny, text="CONF")
 
 // ─────────────── A+ flag: wick-only into zone, no body close inside ───────────────
-aPlusBuy  = buyTrigger  and open >= lastTapTop  // body opened above demand top
-aPlusSell = sellTrigger and open <= lastTapBot  // body opened below supply bottom
+aPlusBuy  = buyReady  and open >= lastTapTop and lastTapWickOnlyNoBody  // wick only, no body inside zone
+aPlusSell = sellReady and open <= lastTapBot and lastTapWickOnlyNoBody  // wick only, no body inside zone
 plotchar(aPlusBuy or aPlusSell, title="A+ setup", char="★", location=location.top, color=color.yellow, size=size.tiny)
 
 // ─────────────── Minor BOS (stair-step) reversal confirmation ───────────────
@@ -189,9 +225,9 @@ plotshape(secondLowerHigh,  title="2nd Lower High (mBOS sell confirm)",  style=s
 plotshape(secondHigherLow,  title="2nd Higher Low (mBOS buy confirm)",   style=shape.cross,  location=location.belowbar, color=color.green,  size=size.tiny)
 
 // Status table: plain-language Buy / Sell / Wait readout for the latest bar.
-string statusText = buyTrigger ? (aPlusBuy ? "STATUS: A+ BUY" : "STATUS: BUY") : sellTrigger ? (aPlusSell ? "STATUS: A+ SELL" : "STATUS: SELL") : bull ? "STATUS: WAIT FOR BUY" : bear ? "STATUS: WAIT FOR SELL" : "STATUS: NO TRADE"
-string statusNote = buyTrigger ? "Entry trigger fired. Check stop and risk." : sellTrigger ? "Entry trigger fired. Check stop and risk." : bull ? "Structure is bullish. Wait for zone tap plus trigger." : bear ? "Structure is bearish. Wait for zone tap plus trigger." : "No clear structure. Stand aside."
-color statusBg = buyTrigger ? color.teal : sellTrigger ? color.red : (bull or bear) ? color.orange : color.gray
+string statusText = buyReady ? (aPlusBuy ? "STATUS: A+ BUY" : "STATUS: BUY") : sellReady ? (aPlusSell ? "STATUS: A+ SELL" : "STATUS: SELL") : (buySessionBlocked ? "STATUS: WAIT SESSION BUY" : sellSessionBlocked ? "STATUS: WAIT SESSION SELL" : buyConfirmBlocked ? "STATUS: WAIT CONFIRM BUY" : sellConfirmBlocked ? "STATUS: WAIT CONFIRM SELL" : bull ? "STATUS: WAIT FOR BUY" : bear ? "STATUS: WAIT FOR SELL" : "STATUS: NO TRADE")
+string statusNote = buyReady or sellReady ? "Entry trigger passed session and 15M/30M confirmation. Check stop and risk." : buySessionBlocked or sellSessionBlocked ? "Entry trigger formed outside London/New York volume." : buyConfirmBlocked or sellConfirmBlocked ? "Entry trigger formed, but 15M/30M still oppose the active bias." : bull ? "Structure is bullish. Wait for zone tap plus trigger." : bear ? "Structure is bearish. Wait for zone tap plus trigger." : "No clear structure. Stand aside."
+color statusBg = buyReady ? color.teal : sellReady ? color.red : (buySessionBlocked or sellSessionBlocked or buyConfirmBlocked or sellConfirmBlocked or bull or bear) ? color.orange : color.gray
 
 var table statusTable = table.new(position.top_right, 1, 2, border_width=1)
 if showStatus and barstate.islast
@@ -201,8 +237,10 @@ if not showStatus and barstate.islast
     table.clear(statusTable, 0, 0, 0, 1)
 
 // ─────────────────────────── Alerts ───────────────────────────
-alertcondition(buyTrigger,        title="Buy Entry Triggered",  message="CHAM S&D: BUY entry on {{ticker}} {{interval}}")
-alertcondition(sellTrigger,       title="Sell Entry Triggered", message="CHAM S&D: SELL entry on {{ticker}} {{interval}}")
+alertcondition(buyReady,          title="Buy Entry Triggered",  message="CHAM S&D: BUY entry on {{ticker}} {{interval}}")
+alertcondition(sellReady,         title="Sell Entry Triggered", message="CHAM S&D: SELL entry on {{ticker}} {{interval}}")
+alertcondition(buySessionBlocked or sellSessionBlocked, title="Session Gate", message="CHAM S&D: Entry trigger formed outside London/New York session on {{ticker}}")
+alertcondition(buyConfirmBlocked or sellConfirmBlocked, title="Top-Down Gate", message="CHAM S&D: Entry trigger waits for 15M/30M confirmation on {{ticker}}")
 alertcondition(bosUp,             title="Bullish BOS",          message="CHAM S&D: Bullish Break of Structure on {{ticker}}")
 alertcondition(bosDown,           title="Bearish BOS",          message="CHAM S&D: Bearish Break of Structure on {{ticker}}")
 alertcondition(secondLowerHigh,   title="2nd Lower High",       message="CHAM S&D: Second lower high — bearish mBOS confirmation")

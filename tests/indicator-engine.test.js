@@ -366,6 +366,15 @@ function testLowerTimeframeOppositionBlocksEntry() {
 function testPineIndicatorIsPriceActionOnly() {
   assert(!/ta\.ema|useEmaTrend|Trend EMA/i.test(pineCode), "Pine indicator must not use EMA trend filtering");
   assert(/array\.size\(zones\) > 1/.test(pineCode), "Pine indicator should keep only the newest zone");
+  assert(pineCode.includes("input.session(\"0300-1200\""), "Pine indicator should gate entries by London session");
+  assert(pineCode.includes("input.session(\"0930-1600\""), "Pine indicator should gate entries by New York session");
+  assert(pineCode.includes("request.security(syminfo.tickerid, confirm15"), "Pine indicator should request 15M confirmation");
+  assert(pineCode.includes("request.security(syminfo.tickerid, confirm30"), "Pine indicator should request 30M confirmation");
+  assert(pineCode.includes("buyReady = buyTrigger and sessionOk and not lowerTimeframesOppose"), "Pine buy alerts should require session and top-down confirmation");
+  assert(pineCode.includes("sellReady = sellTrigger and sessionOk and not lowerTimeframesOppose"), "Pine sell alerts should require session and top-down confirmation");
+  assert(pineCode.includes("lastTapWickOnlyNoBody"), "Pine A+ setup should track wick-only/no-body zone taps");
+  assert(pineCode.includes("STATUS: WAIT SESSION BUY"), "Pine status should expose session-gated buy state");
+  assert(pineCode.includes("STATUS: WAIT CONFIRM BUY"), "Pine status should expose top-down-gated buy state");
 }
 
 function testWebsiteHasDramaticStatusFlash() {
@@ -407,6 +416,7 @@ function testWebsiteLinksLatestDesktopInstaller() {
   assert(statusCode.includes("https://api.github.com/repos/cafepromenade/chamilleia-trading-indicator/releases/latest"), "website should look up the newest GitHub release");
   assert(statusCode.includes("installDesktopLinks.forEach"), "all desktop install links should update from the latest release response");
   assert(statusCode.includes("ChamSD.Desktop.Setup.exe"), "latest release lookup should target the NSIS installer asset");
+  assert(htmlCode.includes("Latest GitHub Actions Release"), "website should visibly link to the latest GitHub Actions release");
 }
 
 function testWebsiteUsesTwentyFourHourTimeOnly() {

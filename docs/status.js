@@ -90,7 +90,7 @@
 
       if (latestReleaseLink) {
         latestReleaseLink.href = releaseUrl;
-        latestReleaseLink.textContent = portableAsset ? "Latest Release" : "Release Page";
+        latestReleaseLink.textContent = portableAsset ? "Latest GitHub Actions Release" : "GitHub Actions Release Page";
         latestReleaseLink.title = release.tag_name
           ? `View ${release.tag_name} release assets`
           : "View latest release assets";
