@@ -70,6 +70,9 @@ FINAL BOT READ: {fallbackFinalRead}
     private static async Task<string> RunModelAsync(string model, string prompt, CancellationToken cancellationToken)
     {
         var opencodePath = FindOpenCodeScript();
+        var promptFile = Path.Combine(Path.GetTempPath(), $"chamsd-opencode-prompt-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(promptFile, prompt, Encoding.UTF8, cancellationToken);
+
         var startInfo = new ProcessStartInfo
         {
             FileName = opencodePath is null ? "opencode" : "powershell.exe",
@@ -85,7 +88,9 @@ FINAL BOT READ: {fallbackFinalRead}
             startInfo.ArgumentList.Add("run");
             startInfo.ArgumentList.Add("-m");
             startInfo.ArgumentList.Add(model);
-            startInfo.ArgumentList.Add(prompt);
+            startInfo.ArgumentList.Add("--file");
+            startInfo.ArgumentList.Add(promptFile);
+            startInfo.ArgumentList.Add("Read the attached ChamSD live strategy prompt and answer in the required four GUI-card sections.");
         }
         else
         {
@@ -97,26 +102,35 @@ FINAL BOT READ: {fallbackFinalRead}
             startInfo.ArgumentList.Add("run");
             startInfo.ArgumentList.Add("-m");
             startInfo.ArgumentList.Add(model);
-            startInfo.ArgumentList.Add(prompt);
+            startInfo.ArgumentList.Add("--file");
+            startInfo.ArgumentList.Add(promptFile);
+            startInfo.ArgumentList.Add("Read the attached ChamSD live strategy prompt and answer in the required four GUI-card sections.");
         }
-
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start opencode.");
-        using var attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        attemptTimeout.CancelAfter(TimeSpan.FromSeconds(24));
 
         try
         {
-            var outputTask = process.StandardOutput.ReadToEndAsync(attemptTimeout.Token);
-            var errorTask = process.StandardError.ReadToEndAsync(attemptTimeout.Token);
-            await process.WaitForExitAsync(attemptTimeout.Token);
-            var output = await outputTask;
-            var error = await errorTask;
-            return CleanProcessResult(process.ExitCode, output, error, model);
+            using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start opencode.");
+            using var attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            attemptTimeout.CancelAfter(TimeSpan.FromSeconds(24));
+
+            try
+            {
+                var outputTask = process.StandardOutput.ReadToEndAsync(attemptTimeout.Token);
+                var errorTask = process.StandardError.ReadToEndAsync(attemptTimeout.Token);
+                await process.WaitForExitAsync(attemptTimeout.Token);
+                var output = await outputTask;
+                var error = await errorTask;
+                return CleanProcessResult(process.ExitCode, output, error, model);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                TryKill(process);
+                throw new TimeoutException("timed out after 24 seconds.");
+            }
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        finally
         {
-            TryKill(process);
-            throw new TimeoutException("timed out after 24 seconds.");
+            TryDelete(promptFile);
         }
     }
 
@@ -176,6 +190,20 @@ FINAL BOT READ: {fallbackFinalRead}
             if (!process.HasExited)
             {
                 process.Kill(entireProcessTree: true);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
             }
         }
         catch

@@ -16,6 +16,7 @@ tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
 tests.OpenCodeRejectsUnguiifiedOutputAndKeepsTrying();
 tests.OpenCodePromptCarriesBothDocumentMethods();
+tests.OpenCodePassesLongPromptByFile();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
 tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
@@ -371,6 +372,17 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
 
         Assert(pageCode.Contains("4H: {decision.H4Bias.Direction}", StringComparison.Ordinal), "OpenCode prompt should include raw 4H bias");
         Assert(pageCode.Contains("1H: {decision.H1Bias.Direction}", StringComparison.Ordinal), "OpenCode prompt should include raw 1H bias");
+    }
+
+    public void OpenCodePassesLongPromptByFile()
+    {
+        var thinkingCode = ReadRepoFile("desktop/ChamSD.Desktop/OpenCodeThinkingService.cs");
+
+        Assert(thinkingCode.Contains("File.WriteAllTextAsync(promptFile, prompt", StringComparison.Ordinal), "OpenCode should write the full strategy prompt to a temp file");
+        Assert(thinkingCode.Contains("startInfo.ArgumentList.Add(\"--file\")", StringComparison.Ordinal), "OpenCode should attach the prompt file instead of passing the whole prompt as an argument");
+        Assert(thinkingCode.Contains("Read the attached ChamSD live strategy prompt", StringComparison.Ordinal), "OpenCode command-line message should stay short and point at the attached prompt");
+        Assert(thinkingCode.Contains("TryDelete(promptFile)", StringComparison.Ordinal), "OpenCode prompt temp file should be cleaned up after each attempt");
+        Assert(!thinkingCode.Contains("startInfo.ArgumentList.Add(prompt)", StringComparison.Ordinal), "OpenCode should not pass the full prompt directly on the command line");
     }
 
     public void PredictionParserKeepsGuiCardsFilled()
