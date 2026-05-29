@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chamilleia Supply &amp; Demand - Simple TradingView Indicator</title>
-  <meta name="description" content="A plain-English guide to Chamilleia's TradingView supply and demand indicator, with a simple automated Buy, Sell, or Wait status demo." />
+  <meta name="description" content="A plain-English guide to Chamilleia's TradingView supply and demand indicator, with a live Buy, Sell, or Wait status from market candles." />
   <link rel="stylesheet" href="style.css" />
   <script src="indicator-engine.js" defer></script>
   <script src="status.js" defer></script>
@@ -30,10 +30,10 @@
         explains the idea one tiny step at a time.
       </p>
 
-      <div class="status-preview" aria-label="Current example status">
-        <span class="status-kicker">Example label</span>
-        <strong id="hero-status">STATUS: WAIT</strong>
-        <span id="hero-status-note">No trade until the setup is complete.</span>
+      <div class="status-preview" aria-label="Current live status">
+        <span class="status-kicker">Live XAUUSD label</span>
+        <strong id="hero-status">STATUS: LOADING</strong>
+        <span id="hero-status-note">Fetching live market candles.</span>
       </div>
 
       <div class="cta">
@@ -131,15 +131,15 @@
         <h2>The Status label is the big simple answer</h2>
         <p class="section-copy">
           The website cannot run Pine Script itself, so this page runs a
-          JavaScript version of the same rules on live 5-minute Coinbase candles.
+          JavaScript version of the same rules on live 5-minute market candles.
+          XAUUSD is first because that is the main market Johnson mentioned.
         </p>
       </div>
 
       <div class="lab-layout">
-        <div class="chart-demo" aria-hidden="true">
-          <div class="zone supply-zone" id="runner-supply-zone">Supply area</div>
-          <div class="candles" id="runner-candles"></div>
-          <div class="zone demand-zone" id="runner-demand-zone">Demand area</div>
+        <div class="live-chart" aria-hidden="true">
+          <div id="chart-status" class="chart-status wait">STATUS: LOADING</div>
+          <svg id="live-candlestick-chart" class="candlestick-chart" viewBox="0 0 900 460" role="img"></svg>
           <p class="chart-caption" id="runner-caption">Loading live candle data.</p>
         </div>
 
@@ -154,12 +154,12 @@
             <div class="market-controls">
               <label class="market-select-label" for="market-select">Real market</label>
               <select id="market-select" class="market-select">
-                <option value="BTC-USD">BTC-USD</option>
-                <option value="ETH-USD">ETH-USD</option>
-                <option value="SOL-USD">SOL-USD</option>
-                <option value="LTC-USD">LTC-USD</option>
+                <option value="XAUUSD">XAUUSD - Gold</option>
+                <option value="GBPJPY">GBPJPY</option>
+                <option value="EURUSD">EURUSD</option>
+                <option value="BTCUSD">BTCUSD</option>
               </select>
-              <button type="button" class="scenario-btn active" id="reload-live">Refresh</button>
+              <button type="button" class="refresh-btn active" id="reload-live">Refresh</button>
             </div>
 
             <dl class="engine-facts" id="engine-facts">
@@ -168,41 +168,16 @@
               <div><dt>EMA</dt><dd>-</dd></div>
               <div><dt>Zones found</dt><dd>-</dd></div>
               <div><dt>Last candle</dt><dd>-</dd></div>
-              <div><dt>Source</dt><dd>Coinbase</dd></div>
+              <div><dt>Source</dt><dd>BiQuote</dd></div>
             </dl>
           </div>
 
-          <p class="practice-title">Practice without chart data</p>
-          <div id="status-output" class="status-output wait" role="status" aria-live="polite">
-            <span class="status-title">STATUS: WAIT</span>
-            <span class="status-reason">Choose the simple conditions to see the teaching label.</span>
+          <div class="plain-warning">
+            <h3>Green and red, super simple</h3>
+            <p><strong>Buy</strong> means you are saying price may go up, so you want green/up candles after you enter.</p>
+            <p><strong>Sell</strong> means you are saying price may go down, so you want red/down candles after you enter.</p>
+            <p>If price goes the opposite way from your choice, that is how a trade can lose money.</p>
           </div>
-          <form class="signal-controls" aria-label="Status label controls">
-            <fieldset>
-              <legend>1. Is the price picture mostly going up or down?</legend>
-              <label><input type="radio" name="trend" value="up" /> Going up</label>
-              <label><input type="radio" name="trend" value="down" /> Going down</label>
-              <label><input type="radio" name="trend" value="flat" checked /> Sideways</label>
-            </fieldset>
-
-            <fieldset>
-              <legend>2. Did price come back and touch the marked area?</legend>
-              <label><input type="radio" name="tap" value="yes" /> Yes, it touched</label>
-              <label><input type="radio" name="tap" value="no" checked /> Not yet</label>
-            </fieldset>
-
-            <fieldset>
-              <legend>3. After the touch, did price start moving again?</legend>
-              <label><input type="radio" name="break" value="up" /> It moved up</label>
-              <label><input type="radio" name="break" value="down" /> It moved down</label>
-              <label><input type="radio" name="break" value="none" checked /> No break</label>
-            </fieldset>
-
-            <label class="checkbox-line">
-              <input type="checkbox" id="wickOnly" />
-              The touch was extra clean
-            </label>
-          </form>
         </div>
       </div>
     </section>

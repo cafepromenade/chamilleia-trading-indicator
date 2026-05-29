@@ -137,6 +137,28 @@ h1 {
   padding: 1rem;
   display: grid;
   gap: 0.25rem;
+  border-width: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.status-preview.buy {
+  border-color: var(--green);
+  background: rgba(66, 211, 146, 0.1);
+}
+
+.status-preview.sell {
+  border-color: var(--red);
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.status-preview.wait {
+  border-color: var(--yellow);
+  background: rgba(246, 196, 81, 0.1);
+}
+
+.status-preview.no-trade {
+  border-color: var(--blue);
+  background: rgba(138, 180, 255, 0.1);
 }
 
 .status-kicker {
@@ -150,6 +172,26 @@ h1 {
 .status-title {
   font-size: 1.45rem;
   line-height: 1.15;
+}
+
+.status-preview.buy #hero-status,
+.status-output.buy .status-title {
+  color: var(--green);
+}
+
+.status-preview.sell #hero-status,
+.status-output.sell .status-title {
+  color: var(--red);
+}
+
+.status-preview.wait #hero-status,
+.status-output.wait .status-title {
+  color: var(--yellow);
+}
+
+.status-preview.no-trade #hero-status,
+.status-output.no-trade .status-title {
+  color: var(--blue);
 }
 
 #hero-status-note,
@@ -226,7 +268,7 @@ h2 {
 .plain-grid article,
 .card,
 .status-panel,
-.chart-demo,
+.live-chart,
 .story-steps li,
 .steps li {
   border: 1px solid var(--line);
@@ -295,90 +337,131 @@ h2 {
   align-items: stretch;
 }
 
-.chart-demo {
+.live-chart {
   position: relative;
   min-height: 430px;
   overflow: hidden;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    #0d141f;
-  background-size: 100% 25%, 12.5% 100%;
+  background: #0d141f;
 }
 
-.zone {
+.chart-status {
   position: absolute;
-  left: 0;
-  right: 0;
-  padding: 0.55rem 1rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 0.76rem;
+  top: 0.9rem;
+  left: 1rem;
+  z-index: 2;
+  max-width: calc(100% - 2rem);
+  padding: 0.45rem 0.7rem;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: rgba(13, 20, 31, 0.88);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
 }
 
-.supply-zone {
-  top: 16%;
-  color: #ffd4d4;
-  background: rgba(255, 107, 107, 0.16);
-  border-block: 1px solid rgba(255, 107, 107, 0.55);
-}
-
-.demand-zone {
-  bottom: 16%;
-  color: #c7fff4;
-  background: rgba(45, 212, 191, 0.16);
-  border-block: 1px solid rgba(45, 212, 191, 0.55);
-}
-
-.candles {
-  position: absolute;
-  inset: 18% 10% 18%;
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 0.7rem;
-}
-
-.candle {
-  width: min(10%, 42px);
-  min-width: 16px;
-  height: 48%;
-  border-radius: 5px;
-  position: relative;
-}
-
-.candle::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: -22px;
-  bottom: -22px;
-  width: 2px;
-  transform: translateX(-50%);
-  background: currentColor;
-}
-
-.candle.up {
+.chart-status.buy {
+  border-color: var(--green);
   color: var(--green);
-  background: var(--green);
+  background: rgba(19, 62, 49, 0.92);
 }
 
-.candle.down {
+.chart-status.sell {
+  border-color: var(--red);
   color: var(--red);
-  background: var(--red);
+  background: rgba(72, 26, 31, 0.92);
 }
 
-.candle.tall {
-  height: 78%;
+.chart-status.wait {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  background: rgba(71, 55, 20, 0.92);
 }
 
-.candle.short {
-  height: 32%;
+.chart-status.no-trade {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: rgba(25, 43, 73, 0.92);
 }
 
-.status-candle {
-  box-shadow: 0 0 0 5px rgba(246, 196, 81, 0.22);
+.candlestick-chart {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chart-bg {
+  fill: #0d141f;
+}
+
+.chart-title {
+  fill: var(--ink);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.chart-grid {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.price-label,
+.time-label {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.time-label {
+  text-anchor: middle;
+}
+
+.chart-candle line {
+  stroke-width: 2;
+}
+
+.chart-candle rect {
+  stroke-width: 1;
+}
+
+.chart-candle.up line,
+.chart-candle.up rect {
+  stroke: var(--green);
+  fill: var(--green);
+}
+
+.chart-candle.down line,
+.chart-candle.down rect {
+  stroke: var(--red);
+  fill: var(--red);
+}
+
+.chart-candle.latest rect {
+  stroke: var(--yellow);
+  stroke-width: 2;
+}
+
+.demand-rect {
+  fill: rgba(45, 212, 191, 0.12);
+  stroke: rgba(45, 212, 191, 0.42);
+}
+
+.supply-rect {
+  fill: rgba(255, 107, 107, 0.12);
+  stroke: rgba(255, 107, 107, 0.42);
+}
+
+.last-price-line {
+  stroke: rgba(246, 196, 81, 0.75);
+  stroke-dasharray: 5 5;
+  stroke-width: 1;
+}
+
+.last-price-label {
+  fill: var(--yellow);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .status-panel {
@@ -390,8 +473,7 @@ h2 {
   gap: 1rem;
 }
 
-.mini-label,
-.practice-title {
+.mini-label {
   color: var(--yellow);
   font-size: 0.74rem;
   font-weight: 900;
@@ -399,31 +481,32 @@ h2 {
   text-transform: uppercase;
 }
 
-.practice-title {
-  margin-top: 1.25rem;
-}
-
 .status-output {
   display: grid;
   gap: 0.35rem;
   padding: 1rem;
   border-width: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .status-output.buy {
   border-color: var(--green);
+  background: rgba(66, 211, 146, 0.1);
 }
 
 .status-output.sell {
   border-color: var(--red);
+  background: rgba(255, 107, 107, 0.1);
 }
 
 .status-output.wait {
   border-color: var(--yellow);
+  background: rgba(246, 196, 81, 0.1);
 }
 
 .status-output.no-trade {
   border-color: var(--blue);
+  background: rgba(138, 180, 255, 0.1);
 }
 
 .market-controls {
@@ -456,7 +539,7 @@ h2 {
   font-weight: 800;
 }
 
-.scenario-btn {
+.refresh-btn {
   min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -468,12 +551,12 @@ h2 {
   cursor: pointer;
 }
 
-.scenario-btn:disabled {
+.refresh-btn:disabled {
   cursor: wait;
   opacity: 0.7;
 }
 
-.scenario-btn.active {
+.refresh-btn.active {
   border-color: var(--teal);
   background: rgba(45, 212, 191, 0.14);
   color: var(--ink);
@@ -505,6 +588,29 @@ h2 {
   font-weight: 800;
 }
 
+.plain-warning {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.plain-warning h3 {
+  font-size: 1rem;
+}
+
+.plain-warning p {
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+.plain-warning strong {
+  color: var(--ink);
+}
+
 .chart-caption {
   position: absolute;
   left: 1rem;
@@ -512,12 +618,6 @@ h2 {
   bottom: 0.8rem;
   color: var(--muted);
   font-size: 0.85rem;
-}
-
-.signal-controls {
-  display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
 }
 
 fieldset {
@@ -656,7 +756,7 @@ footer .muted {
     grid-template-columns: 1fr;
   }
 
-  .chart-demo {
+  .live-chart {
     min-height: 330px;
   }
 
