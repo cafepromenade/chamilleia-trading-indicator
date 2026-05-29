@@ -18,7 +18,10 @@
   const predictionNext = document.querySelector("#prediction-next");
   const predictionInvalid = document.querySelector("#prediction-invalid");
   const predictionFinal = document.querySelector("#prediction-final");
+  const installDesktop = document.querySelector("#install-desktop");
+  const latestReleaseLink = document.querySelector("#latest-release-link");
   let previousStatusLabel = "";
+  const githubReleaseApi = "https://api.github.com/repos/cafepromenade/chamilleia-trading-indicator/releases/latest";
 
   const engineSettings = {
     pivotLen: 2,
@@ -56,6 +59,44 @@
       `https://cors.eu.org/${encoded}`,
       `https://api.allorigins.win/raw?url=${encoded}`,
     ];
+  }
+
+  async function loadLatestDesktopRelease() {
+    if (!installDesktop && !latestReleaseLink) {
+      return;
+    }
+
+    try {
+      const response = await fetch(githubReleaseApi, {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (!response.ok) {
+        throw new Error(`GitHub release lookup failed: ${response.status}`);
+      }
+
+      const release = await response.json();
+      const setupAsset = release.assets?.find((asset) => asset.name === "ChamSD.Desktop.Setup.exe");
+      const portableAsset = release.assets?.find((asset) => asset.name === "ChamSD.Desktop.Portable.zip");
+      const releaseUrl = release.html_url || "https://github.com/cafepromenade/chamilleia-trading-indicator/releases/latest";
+
+      if (installDesktop) {
+        installDesktop.href = setupAsset?.browser_download_url || releaseUrl;
+        installDesktop.textContent = setupAsset ? "Install Desktop App" : "Open Desktop Release";
+        installDesktop.title = release.tag_name
+          ? `Latest GitHub Actions release: ${release.tag_name}`
+          : "Latest GitHub Actions release";
+      }
+
+      if (latestReleaseLink) {
+        latestReleaseLink.href = releaseUrl;
+        latestReleaseLink.textContent = portableAsset ? "Latest Release" : "Release Page";
+        latestReleaseLink.title = release.tag_name
+          ? `View ${release.tag_name} release assets`
+          : "View latest release assets";
+      }
+    } catch (error) {
+      console.warn(error);
+    }
   }
 
   function animateStatusChange(result) {
@@ -461,5 +502,6 @@
   marketSelect.addEventListener("change", loadLiveCandles);
   reloadLive.addEventListener("click", loadLiveCandles);
 
+  loadLatestDesktopRelease();
   loadLiveCandles();
 })();

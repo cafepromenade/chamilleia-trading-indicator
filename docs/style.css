@@ -362,7 +362,7 @@ main {
 }
 
 .dashboard-only .dashboard-top {
-  grid-template-columns: minmax(260px, 520px);
+  grid-template-columns: minmax(260px, 720px);
   justify-content: end;
 }
 
@@ -767,9 +767,9 @@ h2 {
 
 .market-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.5rem;
-  align-items: end;
+  align-items: center;
 }
 
 .market-select-label {
@@ -796,7 +796,8 @@ h2 {
 }
 
 .refresh-btn,
-.install-btn {
+.install-btn,
+.release-link {
   display: inline-flex;
   justify-content: center;
   align-items: center;
@@ -827,30 +828,51 @@ h2 {
 }
 
 .install-btn {
-  grid-column: 1 / -1;
   border-color: rgba(138, 180, 255, 0.68);
   background: rgba(138, 180, 255, 0.12);
   color: var(--ink);
   box-shadow: 0 0 20px rgba(138, 180, 255, 0.14);
 }
 
+.install-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+}
+
+.release-link {
+  min-height: 40px;
+  padding: 0 0.65rem;
+  border-color: rgba(45, 212, 191, 0.38);
+  background: rgba(45, 212, 191, 0.08);
+  color: var(--teal);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .dashboard-only .market-controls {
-  grid-template-columns: minmax(145px, 1fr) minmax(92px, 0.6fr) minmax(150px, 1fr);
+  grid-template-columns: minmax(175px, 1fr) minmax(96px, 0.6fr) minmax(320px, 1.35fr);
   align-items: start;
 }
 
 .dashboard-only .market-select-label {
-  gap: 0;
-  font-size: 0;
+  display: none;
 }
 
 .dashboard-only .market-select {
+  grid-column: 1 / 2;
+  grid-row: 1;
   font-size: 0.9rem;
 }
 
-.dashboard-only .install-btn {
+.dashboard-only .install-actions {
   grid-column: 3 / 4;
   grid-row: 1;
+  min-width: 0;
+}
+
+.dashboard-only .install-btn {
   white-space: nowrap;
 }
 
@@ -875,7 +897,9 @@ h2 {
 }
 
 .install-btn:hover,
-.install-btn:focus-visible {
+.install-btn:focus-visible,
+.release-link:hover,
+.release-link:focus-visible {
   border-color: var(--blue);
   background: rgba(138, 180, 255, 0.2);
 }
@@ -1315,6 +1339,7 @@ footer .muted {
   }
 
   .market-controls,
+  .install-actions,
   .prediction-grid,
   .risk-plan {
     grid-template-columns: 1fr;
