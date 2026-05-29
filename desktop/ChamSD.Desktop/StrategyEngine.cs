@@ -444,6 +444,8 @@ public sealed class StrategyEngine
                 ClassName = baseStatus.ClassName,
                 Bar = index,
                 Close = candle.Close,
+                High = candle.High,
+                Low = candle.Low,
                 Bull = bull,
                 Bear = bear,
                 BuyTrigger = buyTrigger,
@@ -593,7 +595,8 @@ public sealed class StrategyEngine
         }
 
         var entry = latest.Close;
-        var stop = direction == "bullish" ? latest.LastTap!.Bot : latest.LastTap!.Top;
+        var zoneStop = direction == "bullish" ? latest.LastTap!.Bot : latest.LastTap!.Top;
+        var stop = zoneStop;
         var risk = Math.Abs(entry - stop);
         var stopIsValid = direction == "bullish" ? stop < entry : stop > entry;
         if (!double.IsFinite(risk) || risk == 0 || !stopIsValid)
@@ -608,10 +611,26 @@ public sealed class StrategyEngine
             };
         }
 
+        var usedEnteringCandleStop = false;
+        if (risk > 50)
+        {
+            var enteringCandleStop = direction == "bullish" ? latest.Low : latest.High;
+            var enteringRisk = Math.Abs(entry - enteringCandleStop);
+            var enteringStopIsValid = direction == "bullish" ? enteringCandleStop < entry : enteringCandleStop > entry;
+            if (double.IsFinite(enteringRisk) && enteringRisk > 0 && enteringRisk <= 50 && enteringStopIsValid)
+            {
+                stop = enteringCandleStop;
+                risk = enteringRisk;
+                usedEnteringCandleStop = true;
+            }
+        }
+
         var stopWithinLimit = risk <= 50;
         var stopText = stopWithinLimit
-            ? "Stop size is inside the 50-point guide."
-            : "Stop is larger than the 50-point guide; use the entering candle or skip.";
+            ? usedEnteringCandleStop
+                ? "Zone stop was larger than the 50-point guide, so the plan uses the entering candle stop."
+                : "Stop size is inside the 50-point guide."
+            : "Stop is larger than the 50-point guide even after checking the entering candle; skip.";
         var targetOne = direction == "bullish" ? entry + risk : entry - risk;
 
         if (strictOneToOne)

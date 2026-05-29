@@ -264,6 +264,8 @@
         ...statusForBar({ buyTrigger, sellTrigger, aPlusBuy, aPlusSell, bull, bear }),
         bar: index,
         close: candle.close,
+        high: candle.high,
+        low: candle.low,
         bull,
         bear,
         structureDirection,
@@ -454,8 +456,9 @@
     }
 
     const entry = latest.close;
-    const stop = direction === "bullish" ? latest.lastTap.bot : latest.lastTap.top;
-    const risk = Math.abs(entry - stop);
+    const zoneStop = direction === "bullish" ? latest.lastTap.bot : latest.lastTap.top;
+    let stop = zoneStop;
+    let risk = Math.abs(entry - stop);
     const stopIsValid = direction === "bullish" ? stop < entry : stop > entry;
     if (!Number.isFinite(risk) || risk === 0 || !stopIsValid) {
       return {
@@ -472,10 +475,24 @@
       };
     }
 
+    let usedEnteringCandleStop = false;
+    if (risk > 50) {
+      const enteringCandleStop = direction === "bullish" ? latest.low : latest.high;
+      const enteringRisk = Math.abs(entry - enteringCandleStop);
+      const enteringStopIsValid = direction === "bullish" ? enteringCandleStop < entry : enteringCandleStop > entry;
+      if (Number.isFinite(enteringRisk) && enteringRisk > 0 && enteringRisk <= 50 && enteringStopIsValid) {
+        stop = enteringCandleStop;
+        risk = enteringRisk;
+        usedEnteringCandleStop = true;
+      }
+    }
+
     const stopWithinLimit = risk <= 50;
     const stopText = stopWithinLimit
-      ? "Stop size is inside the 50-point guide."
-      : "Stop is larger than the 50-point guide; use the entering candle or skip.";
+      ? usedEnteringCandleStop
+        ? "Zone stop was larger than the 50-point guide, so the plan uses the entering candle stop."
+        : "Stop size is inside the 50-point guide."
+      : "Stop is larger than the 50-point guide even after checking the entering candle; skip.";
     const targetOne = direction === "bullish" ? entry + risk : entry - risk;
     if (options.strictOneToOne) {
       return {

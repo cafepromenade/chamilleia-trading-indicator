@@ -618,7 +618,7 @@ Strategy rules:
 - Only the newest zone from the latest structure break is valid; older zones are ignored.
 - If a candle body closes through the zone, the zone is invalid and the bot waits for minor structure reset.
 - If market is ranging, use support/resistance only and keep targets strict.
-- Stop goes outside the tapped zone. TP1 is 1:1, then scale 75-90% and let the runner target the next major historical swing before 1:2.
+- Stop goes outside the tapped zone; if that is over 50 points, use the entering candle stop or skip. TP1 is 1:1, then scale 75-90% and let the runner target the next major historical swing before 1:2.
 - Abort trend scanning during random consolidation or when price has no clear structural target near the available daily-history edge.
 - Counter-trend ideas need a strong body-close break and strict 1:1 target.
 

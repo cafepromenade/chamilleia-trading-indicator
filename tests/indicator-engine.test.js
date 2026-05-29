@@ -116,6 +116,12 @@ function executionWithCounterTrendBreak(isStrongFullBody) {
   return bars;
 }
 
+function executionWithWideZoneStop() {
+  const bars = executionWithZoneTap(true);
+  bars[26] = candle(26, 95, 96, 55, 94.9);
+  return bars;
+}
+
 function rangingMarketAtSupport() {
   const bars = [];
   for (let index = 0; index < 45; index += 1) {
@@ -319,6 +325,24 @@ function testSessionGateBlocksBuyOutsidePreferredWindows() {
   assert(sessionChecklist.text.includes("gated until London or New York"), "session checklist should explain why BUY/SELL is blocked");
 }
 
+function testWideZoneStopUsesEnteringCandleFallback() {
+  const bullish = htfBullish();
+  const decision = engine.calculateStrategyDecision({
+    executionCandles: executionWithWideZoneStop(),
+    m15Candles: bullish,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles: bullish,
+  });
+
+  assert.strictEqual(decision.label, "STATUS: A+ BUY", "wide-zone fixture should still be a valid buy setup");
+  assert.strictEqual(decision.risk.stop, 103, "risk plan should use the entering candle low instead of the huge zone low");
+  assert.strictEqual(decision.risk.risk, 3, "entering candle stop should shrink risk inside the 50-point guide");
+  assert.strictEqual(decision.risk.stopWithinLimit, true, "entering candle fallback should make the stop acceptable");
+  assert(decision.risk.text.includes("entering candle stop"), "risk text should explain the entering-candle fallback");
+}
+
 function testPineIndicatorIsPriceActionOnly() {
   assert(!/ta\.ema|useEmaTrend|Trend EMA/i.test(pineCode), "Pine indicator must not use EMA trend filtering");
   assert(/array\.size\(zones\) > 1/.test(pineCode), "Pine indicator should keep only the newest zone");
@@ -382,6 +406,7 @@ testRangeFallbackUsesStrictOneToOneRisk();
 testAPlusRequiresWickOnlyZoneTap();
 testCounterTrendNeedsStrongFullBodyBreakAndStrictRisk();
 testSessionGateBlocksBuyOutsidePreferredWindows();
+testWideZoneStopUsesEnteringCandleFallback();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();

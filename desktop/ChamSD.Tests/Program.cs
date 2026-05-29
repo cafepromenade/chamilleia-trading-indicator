@@ -8,6 +8,7 @@ tests.RangeFallbackUsesStrictOneToOneRisk();
 tests.APlusRequiresWickOnlyZoneTap();
 tests.CounterTrendNeedsStrongFullBodyBreakAndStrictRisk();
 tests.SessionGateBlocksBuyOutsidePreferredWindows();
+tests.WideZoneStopUsesEnteringCandleFallback();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
@@ -192,6 +193,24 @@ internal sealed class DesktopStrategyTests
         Assert(outsidePreferredSession.ClassName == "caution", "session-gated setup should use caution coloring");
         Assert(!sessionChecklist.Ok, "session checklist should fail outside London/New York");
         Assert(sessionChecklist.Text.Contains("gated until London or New York", StringComparison.OrdinalIgnoreCase), "session checklist should explain why BUY/SELL is blocked");
+    }
+
+    public void WideZoneStopUsesEnteringCandleFallback()
+    {
+        var bullish = HtfBullish();
+        var decision = _engine.CalculateStrategyDecision(
+            ExecutionWithWideZoneStop(),
+            bullish,
+            bullish,
+            bullish,
+            bullish,
+            bullish);
+
+        Assert(decision.Label == "STATUS: A+ BUY", "wide-zone fixture should still be a valid buy setup");
+        Assert(decision.Risk.Stop == 103, "risk plan should use the entering candle low instead of the huge zone low");
+        Assert(decision.Risk.Risk == 3, "entering candle stop should shrink risk inside the 50-point guide");
+        Assert(decision.Risk.StopWithinLimit, "entering candle fallback should make the stop acceptable");
+        Assert(decision.Risk.Text.Contains("entering candle stop", StringComparison.OrdinalIgnoreCase), "risk text should explain the entering-candle fallback");
     }
 
     public void OpenCodeUsesOnlyFreeModelLadder()
@@ -389,6 +408,13 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         bars[^1] = isStrongFullBody
             ? Candle(29, 103.1, 107, 103, 106)
             : Candle(29, 100, 107, 99.8, 106);
+        return bars;
+    }
+
+    private static List<MarketCandle> ExecutionWithWideZoneStop()
+    {
+        var bars = ExecutionWithZoneTap(tapIsWickOnly: true);
+        bars[26] = Candle(26, 95, 96, 55, 94.9);
         return bars;
     }
 

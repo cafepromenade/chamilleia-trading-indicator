@@ -26,6 +26,8 @@ public sealed class ChamilleiaLatest
     public string ClassName { get; init; } = "wait";
     public int Bar { get; init; }
     public double Close { get; init; }
+    public double High { get; init; }
+    public double Low { get; init; }
     public bool Bull { get; init; }
     public bool Bear { get; init; }
     public bool BuyTrigger { get; init; }
