@@ -12,6 +12,7 @@
   const strategyChecklist = document.querySelector("#strategy-checklist");
   const riskPlan = document.querySelector("#risk-plan");
   const riskNote = document.querySelector("#risk-note");
+  let previousStatusLabel = "";
 
   const engineSettings = {
     pivotLen: 2,
@@ -52,18 +53,41 @@
     ];
   }
 
+  function animateStatusChange(result) {
+    const targets = [
+      liveStatusBar,
+      engineOutput,
+      chartStatus,
+      heroStatus?.parentElement,
+      liveChart,
+    ].filter(Boolean);
+
+    if (previousStatusLabel && previousStatusLabel !== result.label) {
+      targets.forEach((target) => {
+        target.classList.remove("status-change");
+        void target.offsetWidth;
+        target.classList.add("status-change");
+      });
+    }
+
+    previousStatusLabel = result.label;
+  }
+
   function setEngineOutput(result) {
     engineOutput.className = `status-output ${result.className}`;
     engineOutput.querySelector(".status-title").textContent = result.label;
     engineOutput.querySelector(".status-reason").textContent = result.note;
     chartStatus.className = `chart-status ${result.className}`;
     chartStatus.textContent = result.label;
-    heroStatus.parentElement.className = `status-preview ${result.className}`;
-    heroStatus.textContent = result.label;
-    heroNote.textContent = result.note;
+    if (heroStatus && heroNote) {
+      heroStatus.parentElement.className = `status-preview ${result.className}`;
+      heroStatus.textContent = result.label;
+      heroNote.textContent = result.note;
+    }
     liveStatusBar.className = `live-status-bar ${result.className}`;
     liveStatusBar.querySelector(".bar-status").textContent = result.label;
     liveStatusBar.querySelector(".bar-note").textContent = result.note;
+    animateStatusChange(result);
   }
 
   function renderFact(term, value) {
@@ -86,6 +110,8 @@
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
+      hourCycle: "h23",
+      hour12: false,
       timeZoneName: "short",
     }).format(new Date(seconds * 1000));
   }

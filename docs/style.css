@@ -31,6 +31,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.dashboard-only {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
 .live-status-bar {
   position: sticky;
   top: 0;
@@ -62,6 +67,14 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.status-change {
+  animation: status-slam 820ms cubic-bezier(0.2, 1.2, 0.24, 1) both;
+}
+
+.live-chart.status-change .chart-candle.latest {
+  animation: latest-candle-burst 900ms ease-out both;
 }
 
 .live-status-bar.buy {
@@ -293,6 +306,23 @@ main {
   padding: 0 1.5rem;
 }
 
+.data-dashboard {
+  width: min(1500px, 100%);
+  padding: 1rem;
+}
+
+.dashboard-only .status-lab {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.dashboard-top {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 420px);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 section {
   padding: 4.5rem 0;
   border-bottom: 1px solid var(--line);
@@ -389,14 +419,14 @@ h2 {
 
 .lab-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
   gap: 1rem;
   align-items: stretch;
 }
 
 .live-chart {
   position: relative;
-  min-height: 430px;
+  min-height: min(68vh, 720px);
   overflow: hidden;
   background: #0d141f;
 }
@@ -499,6 +529,55 @@ h2 {
   stroke-width: 2;
 }
 
+@keyframes status-slam {
+  0% {
+    transform: translateX(-18px) scale(0.98);
+    filter: brightness(1);
+  }
+
+  28% {
+    transform: translateX(16px) scale(1.035);
+    filter: brightness(1.55);
+  }
+
+  52% {
+    transform: translateX(-8px) scale(1.015);
+  }
+
+  74% {
+    transform: translateX(4px) scale(1.005);
+  }
+
+  100% {
+    transform: translateX(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes latest-candle-burst {
+  0% {
+    transform: translateY(0) scaleY(1);
+    filter: brightness(1);
+  }
+
+  35% {
+    transform: translateY(-8px) scaleY(1.18);
+    filter: brightness(1.8);
+  }
+
+  100% {
+    transform: translateY(0) scaleY(1);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-change,
+  .live-chart.status-change .chart-candle.latest {
+    animation: none;
+  }
+}
+
 .demand-rect {
   fill: rgba(45, 212, 191, 0.12);
   stroke: rgba(45, 212, 191, 0.42);
@@ -523,6 +602,8 @@ h2 {
 
 .status-panel {
   padding: 1rem;
+  max-height: calc(100vh - 7.2rem);
+  overflow: auto;
 }
 
 .engine-card {
@@ -896,12 +977,17 @@ footer .muted {
     padding-top: 3rem;
   }
 
+  .dashboard-top,
   .lab-layout {
     grid-template-columns: 1fr;
   }
 
   .live-chart {
-    min-height: 330px;
+    min-height: 360px;
+  }
+
+  .status-panel {
+    max-height: none;
   }
 
   .market-controls,

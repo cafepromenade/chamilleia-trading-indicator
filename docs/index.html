@@ -3,171 +3,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chamilleia Supply &amp; Demand - Simple TradingView Indicator</title>
-  <meta name="description" content="A plain-English guide to Chamilleia's TradingView supply and demand indicator, with a live Buy, Sell, or Wait status from market candles." />
+  <title>Cham S&amp;D Live Dashboard</title>
+  <meta name="description" content="Live Chamilleia supply and demand chart, market data, and automated status label." />
   <link rel="stylesheet" href="style.css" />
   <script src="indicator-engine.js" defer></script>
   <script src="status.js" defer></script>
 </head>
-<body>
+<body class="dashboard-only">
   <div id="live-status-bar" class="live-status-bar wait">
     <span class="bar-market">XAUUSD - Gold</span>
     <strong class="bar-status">STATUS: LOADING</strong>
     <span class="bar-note">Fetching live 4H, 1H, and 5M candles.</span>
   </div>
 
-  <header class="hero">
-    <nav aria-label="Primary navigation">
-      <a class="brand" href="#top">CHAM S&amp;D</a>
-      <ul>
-        <li><a href="#simple">Trading 101</a></li>
-        <li><a href="#status">Status</a></li>
-        <li><a href="#rules">Rules</a></li>
-        <li><a href="#install">Install</a></li>
-      </ul>
-    </nav>
+  <main class="data-dashboard">
+    <section id="status" class="status-lab" aria-label="Live trading dashboard">
+      <div class="dashboard-top">
+        <div id="engine-output" class="status-output wait" role="status" aria-live="polite">
+          <span class="status-title">STATUS: LOADING</span>
+          <span class="status-reason">Loading live candles.</span>
+        </div>
 
-    <div id="top" class="hero-inner">
-      <p class="eyebrow">TradingView indicator, explained from zero</p>
-      <h1>First learn what trading is. Then learn when the label says Buy or Sell.</h1>
-      <p class="lede">
-        Trading is like swapping playground tokens. You give something, you get
-        something, and you hope what you got becomes worth more later. This page
-        explains the idea one tiny step at a time.
-      </p>
-
-      <div class="status-preview" aria-label="Current live status">
-        <span class="status-kicker">Live XAUUSD label</span>
-        <strong id="hero-status">STATUS: LOADING</strong>
-        <span id="hero-status-note">Fetching live market candles.</span>
-      </div>
-
-      <div class="cta">
-        <a class="btn primary" href="#simple">Start with trading</a>
-        <a class="btn ghost" href="#status">Try the status label</a>
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <section id="simple" class="intro">
-      <div class="section-heading">
-        <p class="eyebrow">Trading 101</p>
-        <h2>Imagine money is points and trading is swapping</h2>
-        <p class="section-copy">
-          Read these in order. No chart words yet. Just the idea.
-        </p>
-      </div>
-
-      <ol class="story-steps">
-        <li>
-          <span>1</span>
-          <div>
-            <h3>Money is a way to trade</h3>
-            <p>Money is like points people agree to use. You can give points to get a toy, food, a game, or a tiny piece of a company.</p>
-          </div>
-        </li>
-        <li>
-          <span>2</span>
-          <div>
-            <h3>Price means how many points something costs</h3>
-            <p>If a snack costs 2 points today and 3 points tomorrow, the price went up. If it costs 1 point tomorrow, the price went down.</p>
-          </div>
-        </li>
-        <li>
-          <span>3</span>
-          <div>
-            <h3>Trading means trying to swap at a good time</h3>
-            <p>A trader tries to buy something before its price goes up, or sell something before its price goes down.</p>
-          </div>
-        </li>
-        <li>
-          <span>4</span>
-          <div>
-            <h3>Buy means "I think it may go up"</h3>
-            <p>You trade your money for the thing. If the price rises later, you may be able to sell it for more money.</p>
-          </div>
-        </li>
-        <li>
-          <span>5</span>
-          <div>
-            <h3>Sell means "I think it may go down"</h3>
-            <p>You get out of the thing, or in some markets you make a trade that wins if price falls. The simple idea is: sell points down.</p>
-          </div>
-        </li>
-        <li>
-          <span>6</span>
-          <div>
-            <h3>Wait means "do nothing yet"</h3>
-            <p>This is important. Good trading is not clicking all day. Many times the best move is to wait.</p>
-          </div>
-        </li>
-      </ol>
-    </section>
-
-    <section class="intro bridge">
-      <div class="section-heading">
-        <p class="eyebrow">Now the chart</p>
-        <h2>A chart is just a picture of price moving</h2>
-      </div>
-
-      <div class="plain-grid">
-        <article>
-          <h3>Green candles mean up</h3>
-          <p>Green usually means price moved higher during that little piece of time.</p>
-        </article>
-        <article>
-          <h3>Red candles mean down</h3>
-          <p>Red usually means price moved lower during that little piece of time.</p>
-        </article>
-        <article>
-          <h3>An area is like a floor or ceiling</h3>
-          <p>Sometimes price bounces near the same place. The indicator draws that place so it is easier to see.</p>
-        </article>
-        <article>
-          <h3>The status label is the helper</h3>
-          <p>It looks at the chart and gives a simple answer: Buy, Sell, Wait, or No Trade.</p>
-        </article>
-      </div>
-    </section>
-
-    <section id="status" class="status-lab">
-      <div class="section-heading">
-        <p class="eyebrow">Automated label</p>
-        <h2>Live automated strategy and status</h2>
-        <p class="section-copy">
-          The website runs the Trades by Sci ICC flow plus Chamilleia's
-          supply-and-demand entry rules on live 4H, 1H, and 5M candles.
-          XAUUSD is first because that is the main market Johnson mentioned.
-        </p>
+        <div class="market-controls" aria-label="Market controls">
+          <label class="market-select-label" for="market-select">Market</label>
+          <select id="market-select" class="market-select">
+            <option value="XAUUSD">XAUUSD - Gold</option>
+            <option value="GBPJPY">GBPJPY</option>
+            <option value="EURUSD">EURUSD</option>
+            <option value="BTCUSD">BTCUSD</option>
+          </select>
+          <button type="button" class="refresh-btn active" id="reload-live">Refresh</button>
+        </div>
       </div>
 
       <div class="lab-layout">
-        <div class="live-chart" aria-hidden="true">
+        <div class="live-chart" aria-label="Live candlestick chart">
           <div id="chart-status" class="chart-status wait">STATUS: LOADING</div>
-          <svg id="live-candlestick-chart" class="candlestick-chart" viewBox="0 0 900 460" role="img"></svg>
+          <svg id="live-candlestick-chart" class="candlestick-chart" viewBox="0 0 900 460" role="img" aria-label="Live market candlestick chart"></svg>
           <p class="chart-caption" id="runner-caption">Loading live candle data.</p>
         </div>
 
-        <div class="status-panel">
+        <aside class="status-panel" aria-label="Live strategy data">
           <div class="engine-card">
-            <p class="mini-label">Full automated strategy</p>
-            <div id="engine-output" class="status-output wait" role="status" aria-live="polite">
-              <span class="status-title">STATUS: WAIT</span>
-              <span class="status-reason">Loading live candles.</span>
-            </div>
-
-            <div class="market-controls">
-              <label class="market-select-label" for="market-select">Real market</label>
-              <select id="market-select" class="market-select">
-                <option value="XAUUSD">XAUUSD - Gold</option>
-                <option value="GBPJPY">GBPJPY</option>
-                <option value="EURUSD">EURUSD</option>
-                <option value="BTCUSD">BTCUSD</option>
-              </select>
-              <button type="button" class="refresh-btn active" id="reload-live">Refresh</button>
-            </div>
-
             <dl class="engine-facts" id="engine-facts">
               <div><dt>Market</dt><dd>-</dd></div>
               <div><dt>Phase</dt><dd>-</dd></div>
@@ -178,12 +55,12 @@
             </dl>
 
             <div class="strategy-box">
-              <h3>Automated strategy checklist</h3>
+              <h2>Strategy Checklist</h2>
               <ul id="strategy-checklist" class="strategy-checklist"></ul>
             </div>
 
             <div class="strategy-box">
-              <h3>Live risk plan</h3>
+              <h2>Risk Plan</h2>
               <dl id="risk-plan" class="risk-plan">
                 <div><dt>Entry</dt><dd>-</dd></div>
                 <div><dt>Stop</dt><dd>-</dd></div>
@@ -193,73 +70,9 @@
               <p id="risk-note" class="risk-note">Waiting for a valid live setup.</p>
             </div>
           </div>
-
-          <div class="plain-warning">
-            <h3>Green and red, super simple</h3>
-            <p><strong>Buy</strong> means you are saying price may go up, so you want green/up candles after you enter.</p>
-            <p><strong>Sell</strong> means you are saying price may go down, so you want red/down candles after you enter.</p>
-            <p>If price goes the opposite way from your choice, that is how a trade can lose money.</p>
-          </div>
-        </div>
+        </aside>
       </div>
-    </section>
-
-    <section id="rules" class="rules">
-      <div class="section-heading">
-        <p class="eyebrow">The simple checklist</p>
-        <h2>The indicator waits before it speaks</h2>
-      </div>
-
-      <ol class="steps">
-        <li><span>1</span><div><h3>First it asks: which way is price walking?</h3><p>If price is walking up, it looks for a Buy. If price is walking down, it looks for a Sell.</p></div></li>
-        <li><span>2</span><div><h3>Then it asks: did price make a strong move?</h3><p>A strong move is like price taking a big step instead of a tiny step.</p></div></li>
-        <li><span>3</span><div><h3>Then it asks: did price come back?</h3><p>The marked area is the waiting spot. No touch means no trade yet.</p></div></li>
-        <li><span>4</span><div><h3>Last it asks: did price move the right way again?</h3><p>If yes, the label can say Buy or Sell. If no, it keeps saying Wait.</p></div></li>
-      </ol>
-
-      <p class="more">
-        Full advanced rules are in
-        <a href="https://github.com/cafepromenade/chamilleia-trading-indicator/blob/main/STRATEGY.md">STRATEGY.md</a>.
-      </p>
-    </section>
-
-    <section id="features" class="features">
-      <div class="section-heading">
-        <p class="eyebrow">What appears on the chart</p>
-        <h2>Plain labels for a noisy market</h2>
-      </div>
-
-      <div class="grid">
-        <article class="card"><span class="ico">Trend</span><h3>Trend filter</h3><p>Helps decide whether the chart should be looking for buys, sells, or no trade.</p></article>
-        <article class="card"><span class="ico">BOS</span><h3>Break of Structure</h3><p>Marks when price breaks an earlier high or low.</p></article>
-        <article class="card"><span class="ico">Zone</span><h3>Auto zones</h3><p>Draws the important area from the candle before the strong move.</p></article>
-        <article class="card"><span class="ico">Tap</span><h3>Tap warning</h3><p>Shows when price comes back to the area.</p></article>
-        <article class="card"><span class="ico">A+</span><h3>Clean setup</h3><p>Marks cleaner touches where the candle wick reaches the area but the body stays out.</p></article>
-        <article class="card"><span class="ico">Status</span><h3>Automatic status</h3><p>Shows Buy, Sell, Wait, or No Trade in one easy label.</p></article>
-      </div>
-    </section>
-
-    <section id="install" class="install">
-      <div class="section-heading">
-        <p class="eyebrow">Use it on TradingView</p>
-        <h2>Install the indicator</h2>
-      </div>
-
-      <ol class="install-steps">
-        <li>Open TradingView and open <strong>Pine Editor</strong>.</li>
-        <li>Copy the code from <code>indicator/ChamilleiaSupplyDemand.pine</code>.</li>
-        <li>Paste it, save it, then choose <strong>Add to chart</strong>.</li>
-        <li>Use the <strong>5-minute</strong> chart if you want the setup from the written plan.</li>
-        <li>Look at the Status box first: Buy, Sell, Wait, or No Trade.</li>
-      </ol>
-
-      <a class="btn primary" href="https://github.com/cafepromenade/chamilleia-trading-indicator">View on GitHub</a>
     </section>
   </main>
-
-  <footer>
-    <p>Educational tool only. This is not financial advice, and it cannot promise profit.</p>
-    <p class="muted">Chamilleia Supply &amp; Demand</p>
-  </footer>
 </body>
 </html>

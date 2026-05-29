@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "ChamSD.Desktop (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "ChamSD.Desktop (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
