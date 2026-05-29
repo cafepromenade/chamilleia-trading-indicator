@@ -24,6 +24,7 @@ tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
 tests.DesktopChartShowsRiskLevels();
 tests.DesktopWindowIsFixedSize();
+tests.DesktopUsesFullFixedWindowWidth();
 tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
 tests.DesktopUsesLiveMultiTimeframeDataOnly();
 tests.DesktopUsesTwentyFourHourTimeOnly();
@@ -491,6 +492,18 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(windowCode.Contains("ConfigureFixedWindow()", StringComparison.Ordinal), "desktop window should configure fixed sizing on startup");
         Assert(windowCode.Contains("presenter.IsResizable = false", StringComparison.Ordinal), "desktop window should not be resizable");
         Assert(windowCode.Contains("presenter.IsMaximizable = false", StringComparison.Ordinal), "desktop window should not be maximizable");
+    }
+
+    public void DesktopUsesFullFixedWindowWidth()
+    {
+        var pageXaml = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml");
+
+        Assert(!pageXaml.Contains("MaxWidth=\"1080\"", StringComparison.Ordinal), "desktop app should not waste fixed-window width with the old 1080px layout cap");
+        Assert(pageXaml.Contains("HorizontalAlignment=\"Stretch\"", StringComparison.Ordinal), "desktop main layout should stretch across the fixed desktop window");
+        Assert(pageXaml.Contains("<ColumnDefinition Width=\"440\" />", StringComparison.Ordinal), "desktop side panel should be wide enough for prediction cards, webhooks, and checklist details");
+        Assert(pageXaml.Contains("x:Name=\"PredictionThinkingText\"\r\n                                                        MaxLines=\"4\"", StringComparison.Ordinal) ||
+               pageXaml.Contains("x:Name=\"PredictionThinkingText\"\n                                                        MaxLines=\"4\"", StringComparison.Ordinal),
+            "desktop prediction cards should show more than a tiny text snippet");
     }
 
     public void DesktopUserInterfaceHasNoExampleOrAdClutter()

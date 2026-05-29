@@ -66,12 +66,11 @@
 
                 <Grid
                     Grid.Row="1"
-                    MaxWidth="1080"
-                    HorizontalAlignment="Left"
+                    HorizontalAlignment="Stretch"
                     ColumnSpacing="14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="310" />
+                        <ColumnDefinition Width="440" />
                     </Grid.ColumnDefinitions>
 
                     <Grid RowSpacing="12">
@@ -442,7 +441,7 @@
                                                         Text="THINKING" />
                                                     <TextBlock
                                                         x:Name="PredictionThinkingText"
-                                                        MaxLines="3"
+                                                        MaxLines="4"
                                                         Text="OpenCode will read the live structure automatically."
                                                         TextTrimming="WordEllipsis"
                                                         TextWrapping="Wrap" />
@@ -465,7 +464,7 @@
                                                         Text="NEXT MOVE" />
                                                     <TextBlock
                                                         x:Name="PredictionMoveText"
-                                                        MaxLines="3"
+                                                        MaxLines="4"
                                                         Text="No prediction yet."
                                                         TextTrimming="WordEllipsis"
                                                         TextWrapping="Wrap" />
@@ -488,7 +487,7 @@
                                                         Text="INVALIDATION" />
                                                     <TextBlock
                                                         x:Name="PredictionInvalidationText"
-                                                        MaxLines="3"
+                                                        MaxLines="4"
                                                         Text="Waiting for OpenCode."
                                                         TextTrimming="WordEllipsis"
                                                         TextWrapping="Wrap" />
@@ -512,7 +511,7 @@
                                                         Text="BOT READ" />
                                                     <TextBlock
                                                         x:Name="PredictionFinalReadText"
-                                                        MaxLines="2"
+                                                        MaxLines="3"
                                                         Text="STATUS: LOADING"
                                                         TextTrimming="WordEllipsis"
                                                         TextWrapping="Wrap" />
