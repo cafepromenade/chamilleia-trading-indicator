@@ -148,6 +148,8 @@ public sealed partial class MainPage : Page
         RiskTp1Text.Text = FormatNullablePrice(decision.Risk.TargetOne);
         RiskTp2Text.Text = FormatNullablePrice(decision.Risk.TargetTwo);
         RiskStructureText.Text = FormatNullablePrice(decision.Risk.StructureTarget);
+        RiskEntryModeText.Text = decision.Risk.EntryMode;
+        RiskScaleText.Text = decision.Risk.ScaleOut;
         RiskNoteText.Text = decision.Risk.Text;
         ChecklistItems.ItemsSource = decision.Checklist;
         LastUpdatedText.Text = $"Live update: {DateTimeOffset.Now:MMM d, HH:mm:ss}";

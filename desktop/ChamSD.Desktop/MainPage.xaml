@@ -236,6 +236,8 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock FontWeight="SemiBold" Text="Entry" />
                                         <TextBlock x:Name="RiskEntryText" Grid.Column="1" Text="-" />
@@ -247,10 +249,14 @@
                                         <TextBlock x:Name="RiskTp2Text" Grid.Row="3" Grid.Column="1" Text="-" />
                                         <TextBlock Grid.Row="4" FontWeight="SemiBold" Text="Structure" />
                                         <TextBlock x:Name="RiskStructureText" Grid.Row="4" Grid.Column="1" Text="-" />
-                                        <TextBlock Grid.Row="5" FontWeight="SemiBold" Text="Note" />
+                                        <TextBlock Grid.Row="5" FontWeight="SemiBold" Text="Entry type" />
+                                        <TextBlock x:Name="RiskEntryModeText" Grid.Row="5" Grid.Column="1" Text="-" />
+                                        <TextBlock Grid.Row="6" FontWeight="SemiBold" Text="Scale" />
+                                        <TextBlock x:Name="RiskScaleText" Grid.Row="6" Grid.Column="1" Text="75-90%" />
+                                        <TextBlock Grid.Row="7" FontWeight="SemiBold" Text="Note" />
                                         <TextBlock
                                             x:Name="RiskNoteText"
-                                            Grid.Row="5"
+                                            Grid.Row="7"
                                             Grid.Column="1"
                                             Text="-"
                                             TextWrapping="Wrap" />

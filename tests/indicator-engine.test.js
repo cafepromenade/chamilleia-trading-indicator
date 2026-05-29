@@ -74,8 +74,11 @@ function testPrimaryIndicationGate() {
 
   const decision = decisionForExecution(execution);
   const reclaim = decision.checklist.find((item) => item.label === "Primary indication reclaim");
+  const noTradeZone = decision.checklist.find((item) => item.label === "No-trade zone");
 
   assert(reclaim, "primary indication reclaim checklist item should exist");
+  assert(noTradeZone, "no-trade zone checklist item should exist");
+  assert(noTradeZone.text.includes("Body-close outside this range"), "baseline no-trade zone must explain HTF body-close breakout");
   assert.strictEqual(reclaim.ok, false, "price below the indication level must not pass continuation");
   assert(!["STATUS: BUY", "STATUS: A+ BUY"].includes(decision.label), "BUY must not fire before indication reclaim");
 }
@@ -112,6 +115,8 @@ function testNewestZoneOnly() {
 
   const decision = decisionForExecution(execution);
   assert(decision.execution.zones.length <= 1, "engine must keep only the newest valid zone");
+  assert.strictEqual(decision.risk.scaleOut, "75-90%", "risk plan must carry document scale-out guidance");
+  assert(decision.risk.text.includes("75-90% partials"), "risk note must tell users to secure 75-90% partials at TP1");
 }
 
 function testPineIndicatorIsPriceActionOnly() {

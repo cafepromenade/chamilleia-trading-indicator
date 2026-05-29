@@ -404,6 +404,7 @@
         targetTwo: null,
         structureTarget: round(structureTarget),
         entryMode: "WAIT",
+        scaleOut: "75-90%",
         stopWithinLimit: true,
         text: "No live entry plan until price taps a valid zone and gives a trigger. If market stays sideways, use support/resistance only with strict 1:1.",
       };
@@ -422,6 +423,7 @@
         targetTwo: null,
         structureTarget: round(structureTarget),
         entryMode: "ZONE TAPPED",
+        scaleOut: "75-90%",
         stopWithinLimit: true,
         text: "Risk cannot be calculated from the current live zone.",
       };
@@ -441,8 +443,9 @@
       targetTwo: round(targetTwo),
       structureTarget: round(structureTarget),
       entryMode: "BREAK OF CANDLE",
+      scaleOut: "75-90%",
       stopWithinLimit,
-      text: `Stop is outside the tapped zone. ${stopText} TP1 is 1:1: secure partials and move stop to break-even; runner targets ${structureTarget === null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2."}`,
+      text: `Stop is outside the tapped zone. ${stopText} TP1 is 1:1: secure 75-90% partials and move stop to break-even; runner targets ${structureTarget === null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2."}`,
     };
   }
 
@@ -719,6 +722,7 @@
         { label: "Top-down story", ok: d1Bias.direction === "neutral" || d1Bias.direction === bias.direction || bias.direction === "neutral", text: `Daily ${d1Bias.direction}, 4H ${h4Bias.direction}, 1H ${h1Bias.direction}, 30M ${m30Bias.direction}, 15M ${m15Bias.direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.` },
         { label: "Trading session", ok: session.ok, text: session.text },
         { label: "4H/1H bias", ok: bias.direction !== "neutral", text: `${bias.reason} Indication level: ${indicationLevel ?? "-"}.` },
+        { label: "No-trade zone", ok: indicationLevel !== null || rangeHigh === null || rangeLow === null, text: rangeHigh !== null && rangeLow !== null ? `Baseline range is ${rangeLow}-${rangeHigh}. Body-close outside this range creates the Primary Indication Level; wicks alone do not count on HTF.` : "Waiting for enough HTF swing structure to define the baseline no-trade zone. Body-close outside this range creates the Primary Indication Level; wicks alone do not count on HTF." },
         { label: "Primary indication reclaim", ok: continuationConfirmed || bias.direction === "neutral", text: indicationLevel === null ? "No Primary Indication Level yet. Wait for an HTF body-close breakout first." : continuationConfirmed ? `Price is back across ${indicationLevel} in the ${bias.direction} direction.` : `Price has not reclaimed ${indicationLevel}; no continuation entry yet.` },
         { label: "5M structure alignment", ok: (bias.direction === "bullish" && latest.bull) || (bias.direction === "bearish" && latest.bear), text: latest.bull ? "5M market structure is bullish. 5M BOS accepts wick or body breaks." : latest.bear ? "5M market structure is bearish. 5M BOS accepts wick or body breaks." : "5M has no clean market-structure direction." },
         { label: "Zone tap", ok: hasAlignedTap, text: hasAlignedTap ? "Price has tapped a live supply/demand zone aligned with HTF bias." : "Waiting for price to tap the newest valid zone in the HTF direction." },

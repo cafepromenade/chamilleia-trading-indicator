@@ -190,6 +190,14 @@ public sealed class StrategyEngine
                 new ChecklistItem { Label = "4H/1H bias", Ok = bias.Direction != "neutral", Text = $"{bias.Reason} Indication level: {FormatNullable(indicationLevel)}." },
                 new ChecklistItem
                 {
+                    Label = "No-trade zone",
+                    Ok = indicationLevel is not null || rangeHigh is null || rangeLow is null,
+                    Text = rangeHigh is not null && rangeLow is not null
+                        ? $"Baseline range is {FormatNullable(rangeLow)}-{FormatNullable(rangeHigh)}. Body-close outside this range creates the Primary Indication Level; wicks alone do not count on HTF."
+                        : "Waiting for enough HTF swing structure to define the baseline no-trade zone. Body-close outside this range creates the Primary Indication Level; wicks alone do not count on HTF.",
+                },
+                new ChecklistItem
+                {
                     Label = "Primary indication reclaim",
                     Ok = continuationConfirmed || bias.Direction == "neutral",
                     Text = indicationLevel is null
@@ -538,8 +546,9 @@ public sealed class StrategyEngine
             TargetTwo = Round(direction == "bullish" ? entry + risk * 2 : entry - risk * 2),
             StructureTarget = Round(structureTarget),
             EntryMode = "BREAK OF CANDLE",
+            ScaleOut = "75-90%",
             StopWithinLimit = stopWithinLimit,
-            Text = $"Stop is outside the tapped zone. {stopText} TP1 is 1:1: secure partials and move stop to break-even; runner targets {(structureTarget is null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2.")}",
+            Text = $"Stop is outside the tapped zone. {stopText} TP1 is 1:1: secure 75-90% partials and move stop to break-even; runner targets {(structureTarget is null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2.")}",
         };
     }
 

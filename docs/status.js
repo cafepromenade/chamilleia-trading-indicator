@@ -252,6 +252,7 @@
     const visibleGateLabels = new Set([
       "ICC phase",
       "4H/1H bias",
+      "No-trade zone",
       "Primary indication reclaim",
       "Zone tap",
       "Entry trigger",
@@ -273,7 +274,8 @@
       renderFact("Entry", risk.entry === null ? "-" : formatPrice(risk.entry)),
       renderFact("Stop", risk.stop === null ? "-" : formatPrice(risk.stop)),
       renderFact("TP1", risk.targetOne === null ? "-" : formatPrice(risk.targetOne)),
-      renderFact("TP2", risk.targetTwo === null ? "-" : formatPrice(risk.targetTwo)),
+      renderFact("Scale", risk.scaleOut || "75-90%"),
+      renderFact("Entry type", risk.entryMode || "WAIT"),
       renderFact("Structure", risk.structureTarget === null ? "-" : formatPrice(risk.structureTarget)),
     ].join("");
     riskNote.textContent = risk.text;
@@ -367,12 +369,14 @@
     renderLiveChart({ candles: visibleCandles, result: decision.execution, productId });
     runnerCaption.textContent = `${productId} live 5-minute execution with Daily, 4H, 1H, 30M, and 15M top-down bias from ${source}. Last 5M candle: ${formatDateTime(lastCandle.time)}.`;
     const reclaimGate = decision.checklist.find((item) => item.label === "Primary indication reclaim");
+    const noTradeZone = decision.checklist.find((item) => item.label === "No-trade zone");
     engineFacts.innerHTML = [
       renderFact("Market", productId),
       renderFact("Phase", decision.phase),
       renderFact("HTF bias", `${decision.bias.direction.toUpperCase()} (${decision.bias.source})`),
       renderFact("Confidence", `${decision.confidence}%`),
       renderFact("Gate", reclaimGate?.ok ? "RECLAIMED" : "WAIT"),
+      renderFact("No-trade zone", noTradeZone?.text.match(/[-\d.]+-[\d.]+/)?.[0] || "-"),
       renderFact("Last close", formatPrice(latest.close)),
       renderFact("Last candle", formatDateTime(lastCandle.time)),
     ].join("");

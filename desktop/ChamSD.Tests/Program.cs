@@ -23,7 +23,9 @@ internal sealed class DesktopStrategyTests
 
         var decision = DecisionForExecution(execution);
         var reclaim = Checklist(decision, "Primary indication reclaim");
+        var noTradeZone = Checklist(decision, "No-trade zone");
 
+        Assert(noTradeZone.Text.Contains("Body-close outside this range", StringComparison.OrdinalIgnoreCase), "baseline no-trade zone must explain HTF body-close breakout");
         Assert(!reclaim.Ok, "price below the indication level must not pass continuation");
         Assert(decision.Label is not ("STATUS: BUY" or "STATUS: A+ BUY"), "BUY must not fire before indication reclaim");
     }
@@ -62,6 +64,8 @@ internal sealed class DesktopStrategyTests
 
         var decision = DecisionForExecution(execution);
         Assert(decision.Execution.Zones.Count <= 1, "engine must keep only the newest valid zone");
+        Assert(decision.Risk.ScaleOut == "75-90%", "risk plan must carry document scale-out guidance");
+        Assert(decision.Risk.Text.Contains("75-90% partials", StringComparison.OrdinalIgnoreCase), "risk note must tell users to secure 75-90% partials at TP1");
     }
 
     private StrategyDecision DecisionForExecution(IReadOnlyList<MarketCandle> executionCandles)
