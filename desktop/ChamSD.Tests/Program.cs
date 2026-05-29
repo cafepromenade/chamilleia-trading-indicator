@@ -6,6 +6,8 @@ tests.FailedDemandWaitsForSecondHigherLowReset();
 tests.KeepsOnlyNewestZone();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.PredictionParserKeepsGuiCardsFilled();
+tests.DesktopStatusAnimationIsDramaticAndColorCoded();
+tests.DesktopWindowIsFixedSize();
 Console.WriteLine("desktop strategy tests passed");
 
 internal sealed class DesktopStrategyTests
@@ -102,6 +104,34 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(fallback.FinalRead == "STATUS: WAIT", "missing final read should keep the engine status");
     }
 
+    public void DesktopStatusAnimationIsDramaticAndColorCoded()
+    {
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+        var pageXaml = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml");
+
+        Assert(pageXaml.Contains("x:Name=\"StatusFlashOverlay\"", StringComparison.Ordinal), "desktop should have a full-window status flash overlay");
+        Assert(pageXaml.Contains("x:Name=\"StatusFlashTransform\"", StringComparison.Ordinal), "desktop should animate the flash overlay transform");
+        Assert(pageCode.Contains("StatusFlashOverlay.Background = Brush(border)", StringComparison.Ordinal), "flash overlay should use the active status color");
+        Assert(pageCode.Contains("AddDoubleAnimation(storyboard, StatusFlashOverlay, \"Opacity\"", StringComparison.Ordinal), "status changes should flash visibly");
+        Assert(pageCode.Contains("StatusBarTransform, \"TranslateX\"", StringComparison.Ordinal), "status bar should move on status changes");
+        Assert(pageCode.Contains("ChartCanvasTransform, \"TranslateY\"", StringComparison.Ordinal), "chart should move on status changes");
+        Assert(pageCode.Contains("className is \"buy\" or \"sell\" ? 1.0", StringComparison.Ordinal), "buy/sell statuses should use the strongest animation intensity");
+
+        foreach (var status in new[] { "\"buy\"", "\"sell\"", "\"caution\"", "\"no-trade\"" })
+        {
+            Assert(pageCode.Contains(status, StringComparison.Ordinal), $"desktop status theme should include {status}");
+        }
+    }
+
+    public void DesktopWindowIsFixedSize()
+    {
+        var windowCode = ReadRepoFile("desktop/ChamSD.Desktop/MainWindow.xaml.cs");
+
+        Assert(windowCode.Contains("ConfigureFixedWindow()", StringComparison.Ordinal), "desktop window should configure fixed sizing on startup");
+        Assert(windowCode.Contains("presenter.IsResizable = false", StringComparison.Ordinal), "desktop window should not be resizable");
+        Assert(windowCode.Contains("presenter.IsMaximizable = false", StringComparison.Ordinal), "desktop window should not be maximizable");
+    }
+
     private StrategyDecision DecisionForExecution(IReadOnlyList<MarketCandle> executionCandles)
     {
         var bullish = HtfBullish();
@@ -166,6 +196,23 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
     {
         return decision.Checklist.FirstOrDefault(item => item.Label == label)
             ?? throw new InvalidOperationException($"{label} checklist item should exist");
+    }
+
+    private static string ReadRepoFile(string relativePath)
+    {
+        var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, relativePath);
+            if (File.Exists(candidate))
+            {
+                return File.ReadAllText(candidate);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new FileNotFoundException($"Could not find {relativePath} from {Directory.GetCurrentDirectory()}.");
     }
 
     private static void Assert(bool condition, string message)
