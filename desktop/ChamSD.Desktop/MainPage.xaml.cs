@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -11,6 +13,8 @@ namespace ChamSD_Desktop;
 
 public sealed partial class MainPage : Page
 {
+    private const string PredictionModelLabel = "deepseek-v4 free";
+
     private static readonly IReadOnlyList<MarketConfig> Markets =
     [
         new("XAUUSD", "XAUUSD - Gold", "XAUUSD"),
@@ -95,19 +99,23 @@ public sealed partial class MainPage : Page
             RenderDecision(market, decision, executionCandles[^1]);
             DrawChart();
 
-            if (!string.IsNullOrWhiteSpace(previousStatus) && previousStatus != decision.Label)
+            var statusChanged = !string.IsNullOrWhiteSpace(previousStatus) && previousStatus != decision.Label;
+            var shouldAutoThink = AutoThinkCheckBox.IsChecked == true && (string.IsNullOrWhiteSpace(previousStatus) || statusChanged);
+            if (statusChanged)
             {
                 await SendStatusChangeWebhooksAsync();
                 SendWindowsStatusNotification();
-                if (AutoThinkCheckBox.IsChecked == true)
-                {
-                    await RunThinkingAsync();
-                }
+            }
+
+            if (shouldAutoThink)
+            {
+                await RunThinkingAsync();
             }
         }
         catch (Exception ex)
         {
             SetStatus("STATUS: DATA UNAVAILABLE", $"Live data could not be loaded: {ex.Message}", "no-trade", 0, "DATA ERROR");
+            SetPredictionMessage("AI: live data unavailable", "Could not read the live candles.", "No automatic prediction can run until data loads.", ex.Message, "STATUS: DATA UNAVAILABLE", "no-trade");
             LastUpdatedText.Text = "Live data unavailable";
             ChecklistItems.ItemsSource = Array.Empty<ChecklistItem>();
             _visibleCandles = Array.Empty<MarketCandle>();
@@ -174,6 +182,50 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private void SetPredictionTheme(string className)
+    {
+        var (background, border, foreground) = className switch
+        {
+            "buy" => (0xFFEAF8EFu, 0xFF1F9D55u, 0xFF145C32u),
+            "sell" => (0xFFFDECECu, 0xFFD64545u, 0xFF8F1D1Du),
+            "no-trade" => (0xFFF0F2F5u, 0xFF6B7280u, 0xFF343A46u),
+            "caution" => (0xFFFFF3CDu, 0xFFF0B429u, 0xFF7A4F00u),
+            _ => (0xFFFFF7E0u, 0xFFE5B21Fu, 0xFF7A5B00u),
+        };
+
+        PredictionPanel.Background = Brush(background);
+        PredictionPanel.BorderBrush = Brush(border);
+        PredictionStateText.Foreground = Brush(foreground);
+
+        foreach (var card in new[] { PredictionThinkingCard, PredictionMoveCard, PredictionInvalidationCard, PredictionFinalCard })
+        {
+            card.BorderBrush = Brush(border);
+        }
+    }
+
+    private void SetPredictionMessage(string state, string thinking, string prediction, string invalidation, string finalRead, string className)
+    {
+        PredictionStateText.Text = state;
+        PredictionModelText.Text = PredictionModelLabel;
+        PredictionThinkingText.Text = thinking;
+        PredictionMoveText.Text = prediction;
+        PredictionInvalidationText.Text = invalidation;
+        PredictionFinalReadText.Text = finalRead;
+        SetPredictionTheme(className);
+        AnimatePredictionChange();
+    }
+
+    private void SetPredictionSections(PredictionSections sections, string className)
+    {
+        SetPredictionMessage(
+            $"AI: updated {DateTimeOffset.Now:HH:mm:ss}",
+            sections.Thinking,
+            sections.Prediction,
+            sections.Invalidation,
+            sections.FinalRead,
+            className);
+    }
+
     private void AnimateStatusChange()
     {
         StatusBarTransform.TranslateX = 0;
@@ -197,6 +249,25 @@ public sealed partial class MainPage : Page
             ChartCanvasTransform.TranslateY = 0;
             ChartCanvasTransform.ScaleX = 1;
             ChartCanvasTransform.ScaleY = 1;
+        };
+        storyboard.Begin();
+    }
+
+    private void AnimatePredictionChange()
+    {
+        PredictionPanelTransform.TranslateX = 0;
+        PredictionPanelTransform.ScaleX = 1;
+        PredictionPanelTransform.ScaleY = 1;
+
+        var storyboard = new Storyboard();
+        AddDoubleAnimation(storyboard, PredictionPanelTransform, "TranslateX", 0, 14, 160, autoReverse: true);
+        AddDoubleAnimation(storyboard, PredictionPanelTransform, "ScaleX", 1, 1.025, 180, autoReverse: true);
+        AddDoubleAnimation(storyboard, PredictionPanelTransform, "ScaleY", 1, 1.045, 180, autoReverse: true);
+        storyboard.Completed += (_, _) =>
+        {
+            PredictionPanelTransform.TranslateX = 0;
+            PredictionPanelTransform.ScaleX = 1;
+            PredictionPanelTransform.ScaleY = 1;
         };
         storyboard.Begin();
     }
@@ -458,32 +529,117 @@ public sealed partial class MainPage : Page
 
         if (_currentDecision is null || _currentMarket is null)
         {
-            ThinkingTextBox.Text = "OpenCode prediction needs live market data first.";
+            SetPredictionMessage("AI: waiting for live data", "OpenCode prediction needs live market data first.", "Load live candles before predicting.", "No invalidation can be read yet.", "STATUS: WAITING", "wait");
             return;
         }
 
         _isThinking = true;
         ThinkButton.IsEnabled = false;
-        ThinkingTextBox.Text = "Thinking and predicting with opencode...";
+        SetPredictionMessage("AI: thinking...", "OpenCode is reading the live market structure.", "Prediction is running automatically.", "Checking the zone failure rule.", _currentDecision.Label, _currentDecision.ClassName);
 
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
-            ThinkingTextBox.Text = await _thinkingService.ThinkAsync(BuildThinkingPrompt(_currentMarket, _currentDecision), timeout.Token);
+            var output = await _thinkingService.ThinkAsync(BuildThinkingPrompt(_currentMarket, _currentDecision), timeout.Token);
+            SetPredictionSections(ParsePredictionSections(output, _currentDecision.Label), _currentDecision.ClassName);
         }
         catch (OperationCanceledException)
         {
-            ThinkingTextBox.Text = "opencode prediction timed out.";
+            SetPredictionMessage("AI: timed out", "OpenCode did not answer before the timeout.", "Keep the current bot status until the next prediction runs.", "No new invalidation was returned.", _currentDecision.Label, "caution");
         }
         catch (Exception ex)
         {
-            ThinkingTextBox.Text = $"opencode prediction failed: {ex.Message}";
+            SetPredictionMessage("AI: failed", "OpenCode prediction failed.", "Keep the current bot status until OpenCode works again.", ex.Message, _currentDecision.Label, "no-trade");
         }
         finally
         {
             ThinkButton.IsEnabled = true;
             _isThinking = false;
         }
+    }
+
+    private static PredictionSections ParsePredictionSections(string output, string fallbackFinalRead)
+    {
+        var sections = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["THINKING"] = new(),
+            ["PREDICTION"] = new(),
+            ["INVALIDATION"] = new(),
+            ["FINAL BOT READ"] = new(),
+        };
+        var normalized = output.Replace("\r", string.Empty).Replace("**", string.Empty);
+        var matches = Regex.Matches(normalized, "(THINKING|PREDICTION|INVALIDATION|FINAL\\s+BOT\\s+READ)\\s*:", RegexOptions.IgnoreCase);
+        for (var index = 0; index < matches.Count; index++)
+        {
+            var match = matches[index];
+            var key = Regex.Replace(match.Groups[1].Value, "\\s+", " ").ToUpperInvariant();
+            var start = match.Index + match.Length;
+            var end = index + 1 < matches.Count ? matches[index + 1].Index : normalized.Length;
+            var value = normalized[start..end].Trim();
+            if (!string.IsNullOrWhiteSpace(value) && sections.TryGetValue(key, out var section))
+            {
+                section.AppendLine(value.TrimStart('-', '*', ' '));
+            }
+        }
+
+        string? currentSection = null;
+
+        foreach (var rawLine in matches.Count == 0 ? normalized.Split('\n') : Array.Empty<string>())
+        {
+            var line = rawLine.Trim();
+            var heading = line.TrimEnd(':');
+            if (sections.ContainsKey(heading))
+            {
+                currentSection = heading;
+                continue;
+            }
+
+            var inlineHeading = sections.Keys.FirstOrDefault(key => line.StartsWith($"{key}:", StringComparison.OrdinalIgnoreCase));
+            if (inlineHeading is not null)
+            {
+                currentSection = inlineHeading;
+                var inlineText = line[(inlineHeading.Length + 1)..].Trim();
+                if (!string.IsNullOrWhiteSpace(inlineText))
+                {
+                    sections[currentSection].AppendLine(inlineText.TrimStart('-', '*', ' '));
+                }
+
+                continue;
+            }
+
+            if (currentSection is not null && !string.IsNullOrWhiteSpace(line))
+            {
+                sections[currentSection].AppendLine(line.TrimStart('-', '*', ' '));
+            }
+        }
+
+        var thinking = CleanPredictionSection(sections["THINKING"].ToString());
+        var prediction = CleanPredictionSection(sections["PREDICTION"].ToString());
+        var invalidation = CleanPredictionSection(sections["INVALIDATION"].ToString());
+        var finalRead = CleanPredictionSection(sections["FINAL BOT READ"].ToString());
+
+        if (string.IsNullOrWhiteSpace(thinking) && string.IsNullOrWhiteSpace(prediction) && string.IsNullOrWhiteSpace(invalidation))
+        {
+            thinking = CleanPredictionSection(output);
+            prediction = "OpenCode returned one block of text, so the app kept it in Thinking.";
+            invalidation = "No separate invalidation section was returned.";
+        }
+
+        return new PredictionSections(
+            string.IsNullOrWhiteSpace(thinking) ? "OpenCode did not return a thinking section." : thinking,
+            string.IsNullOrWhiteSpace(prediction) ? "OpenCode did not return a prediction section." : prediction,
+            string.IsNullOrWhiteSpace(invalidation) ? "OpenCode did not return an invalidation section." : invalidation,
+            string.IsNullOrWhiteSpace(finalRead) ? fallbackFinalRead : finalRead);
+    }
+
+    private static string CleanPredictionSection(string text)
+    {
+        var cleaned = string.Join(
+            " ",
+            text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => !line.StartsWith(">", StringComparison.Ordinal) && !line.Contains("build ·", StringComparison.OrdinalIgnoreCase)));
+        return cleaned.Length > 220 ? cleaned[..220] + "..." : cleaned;
     }
 
     private static string BuildThinkingPrompt(MarketConfig market, StrategyDecision decision)
@@ -660,4 +816,6 @@ Checklist:
             (byte)((argb & 0x0000FF00) >> 8),
             (byte)(argb & 0x000000FF)));
     }
+
+    private sealed record PredictionSections(string Thinking, string Prediction, string Invalidation, string FinalRead);
 }

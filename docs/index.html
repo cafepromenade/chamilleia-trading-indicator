@@ -54,6 +54,31 @@
               <div><dt>Last candle</dt><dd>-</dd></div>
             </dl>
 
+            <div id="prediction-panel" class="prediction-panel wait" aria-label="Automatic live prediction">
+              <div class="prediction-head">
+                <span>Auto Prediction</span>
+                <strong id="prediction-status">WAITING</strong>
+              </div>
+              <div class="prediction-grid">
+                <article>
+                  <span>Thinking</span>
+                  <p id="prediction-thinking">Waiting for live candles.</p>
+                </article>
+                <article>
+                  <span>Next Move</span>
+                  <p id="prediction-next">No prediction yet.</p>
+                </article>
+                <article>
+                  <span>Invalidation</span>
+                  <p id="prediction-invalid">No invalidation yet.</p>
+                </article>
+                <article>
+                  <span>Bot Read</span>
+                  <p id="prediction-final">STATUS: LOADING</p>
+                </article>
+              </div>
+            </div>
+
             <div class="strategy-box">
               <h2>Strategy Checklist</h2>
               <ul id="strategy-checklist" class="strategy-checklist"></ul>

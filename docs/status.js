@@ -12,6 +12,12 @@
   const strategyChecklist = document.querySelector("#strategy-checklist");
   const riskPlan = document.querySelector("#risk-plan");
   const riskNote = document.querySelector("#risk-note");
+  const predictionPanel = document.querySelector("#prediction-panel");
+  const predictionStatus = document.querySelector("#prediction-status");
+  const predictionThinking = document.querySelector("#prediction-thinking");
+  const predictionNext = document.querySelector("#prediction-next");
+  const predictionInvalid = document.querySelector("#prediction-invalid");
+  const predictionFinal = document.querySelector("#prediction-final");
   let previousStatusLabel = "";
 
   const engineSettings = {
@@ -222,6 +228,76 @@
     riskNote.textContent = risk.text;
   }
 
+  function checklistText(decision, label) {
+    return decision.checklist.find((item) => item.label === label)?.text || "-";
+  }
+
+  function predictionForDecision(decision) {
+    const bias = decision.bias.direction;
+    const label = decision.label;
+    const entryMode = decision.risk.entryMode;
+    const invalidation = checklistText(decision, "Invalidation");
+    const structure = checklistText(decision, "5M structure alignment");
+    const zoneTap = checklistText(decision, "Zone tap");
+
+    if (decision.className === "buy") {
+      return {
+        status: `${decision.confidence}% BUY`,
+        thinking: `Live structure is aligned bullish. ${entryMode}.`,
+        next: "The next likely bot action is BUY unless price closes through the tapped demand zone.",
+        invalid: invalidation,
+        final: label,
+      };
+    }
+
+    if (decision.className === "sell") {
+      return {
+        status: `${decision.confidence}% SELL`,
+        thinking: `Live structure is aligned bearish. ${entryMode}.`,
+        next: "The next likely bot action is SELL unless price closes through the tapped supply zone.",
+        invalid: invalidation,
+        final: label,
+      };
+    }
+
+    if (decision.className === "no-trade") {
+      return {
+        status: "NO TRADE",
+        thinking: decision.note,
+        next: "The bot should not buy or sell until live structure gives a clean setup.",
+        invalid: checklistText(decision, "Consolidation/ATH filter"),
+        final: label,
+      };
+    }
+
+    return {
+      status: bias === "neutral" ? "WAIT" : `WAIT ${bias.toUpperCase()}`,
+      thinking: `${structure} ${zoneTap}`,
+      next: decision.note,
+      invalid: invalidation,
+      final: label,
+    };
+  }
+
+  function renderPrediction(decision) {
+    const prediction = predictionForDecision(decision);
+    predictionPanel.className = `prediction-panel ${decision.className}`;
+    predictionStatus.textContent = prediction.status;
+    predictionThinking.textContent = prediction.thinking;
+    predictionNext.textContent = prediction.next;
+    predictionInvalid.textContent = prediction.invalid;
+    predictionFinal.textContent = prediction.final;
+  }
+
+  function renderPredictionUnavailable(message, className = "wait") {
+    predictionPanel.className = `prediction-panel ${className}`;
+    predictionStatus.textContent = className === "no-trade" ? "OFFLINE" : "WAITING";
+    predictionThinking.textContent = message;
+    predictionNext.textContent = "No live prediction is available yet.";
+    predictionInvalid.textContent = "Live candles are required before invalidation can be read.";
+    predictionFinal.textContent = className === "no-trade" ? "STATUS: DATA UNAVAILABLE" : "STATUS: LOADING";
+  }
+
   function renderEngineResult({ productId, candles, m15Candles, m30Candles, h1Candles, h4Candles, d1Candles, source }) {
     const decision = window.ChamilleiaEngine.calculateStrategyDecision({
       executionCandles: candles,
@@ -252,6 +328,7 @@
       renderFact("Last candle", formatDateTime(lastCandle.time)),
     ].join("");
     renderStrategyChecklist(decision.checklist);
+    renderPrediction(decision);
     renderRiskPlan(decision.risk);
   }
 
@@ -308,6 +385,7 @@
       note: `Fetching live ${market.name} 5-minute candles from ${market.source}.`,
       className: "wait",
     });
+    renderPredictionUnavailable(`Fetching live ${market.name} candles and calculating the next bot read.`);
 
     try {
       const [payload5m, payload15m, payload30m, payload1h, payload4h, payload1d] = await Promise.all([
@@ -357,6 +435,7 @@
         renderFact("Source", market.source),
       ].join("");
       strategyChecklist.innerHTML = "";
+      renderPredictionUnavailable(`Live data failed: ${error.message}`, "no-trade");
       renderRiskPlan({
         entry: null,
         stop: null,

@@ -341,9 +341,10 @@
                                 <CheckBox
                                     x:Name="AutoThinkCheckBox"
                                     AutomationProperties.AutomationId="AutoThinkCheckBox"
-                                    AutomationProperties.Name="Run OpenCode prediction when status changes"
-                                    HorizontalContentAlignment="Stretch">
-                                    <TextBlock Text="Predict when status changes" TextWrapping="Wrap" />
+                                    AutomationProperties.Name="Run OpenCode prediction automatically"
+                                    HorizontalContentAlignment="Stretch"
+                                    IsChecked="True">
+                                    <TextBlock Text="Auto predict on first load and status changes" TextWrapping="Wrap" />
                                 </CheckBox>
                                 <Grid ColumnSpacing="8">
                                     <Grid.ColumnDefinitions>
@@ -367,14 +368,146 @@
                                         Click="TestNotificationButton_Click"
                                         Content="Test" />
                                 </Grid>
-                                <TextBox
-                                    x:Name="ThinkingTextBox"
-                                    AutomationProperties.AutomationId="ThinkingTextBox"
-                                    AutomationProperties.Name="OpenCode prediction result"
-                                    Height="90"
-                                    IsReadOnly="True"
-                                    PlaceholderText="OpenCode thinking and prediction appears here."
-                                    TextWrapping="Wrap" />
+                                <Border
+                                    x:Name="PredictionPanel"
+                                    AutomationProperties.AutomationId="PredictionPanel"
+                                    AutomationProperties.Name="OpenCode prediction cards"
+                                    Padding="8"
+                                    Background="#FFF7E0"
+                                    BorderBrush="#E5B21F"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    RenderTransformOrigin="0.5,0.5">
+                                    <Border.RenderTransform>
+                                        <CompositeTransform x:Name="PredictionPanelTransform" />
+                                    </Border.RenderTransform>
+                                    <Grid RowSpacing="8">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                x:Name="PredictionStateText"
+                                                FontSize="13"
+                                                FontWeight="SemiBold"
+                                                Text="AI: waiting for live data"
+                                                TextWrapping="Wrap" />
+                                            <TextBlock
+                                                x:Name="PredictionModelText"
+                                                Grid.Column="1"
+                                                Foreground="#596579"
+                                                Text="deepseek-v4 free"
+                                                TextWrapping="Wrap" />
+                                        </Grid>
+                                        <Grid Grid.Row="1" RowSpacing="8" ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <Border
+                                                x:Name="PredictionThinkingCard"
+                                                Padding="8"
+                                                Background="#FFFFFF"
+                                                BorderBrush="#D6DBE3"
+                                                BorderThickness="1"
+                                                CornerRadius="6">
+                                                <StackPanel>
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#596579"
+                                                        Text="THINKING" />
+                                                    <TextBlock
+                                                        x:Name="PredictionThinkingText"
+                                                        MaxLines="3"
+                                                        Text="OpenCode will read the live structure automatically."
+                                                        TextTrimming="WordEllipsis"
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border
+                                                x:Name="PredictionMoveCard"
+                                                Grid.Column="1"
+                                                Padding="8"
+                                                Background="#FFFFFF"
+                                                BorderBrush="#D6DBE3"
+                                                BorderThickness="1"
+                                                CornerRadius="6">
+                                                <StackPanel>
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#596579"
+                                                        Text="NEXT MOVE" />
+                                                    <TextBlock
+                                                        x:Name="PredictionMoveText"
+                                                        MaxLines="3"
+                                                        Text="No prediction yet."
+                                                        TextTrimming="WordEllipsis"
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border
+                                                x:Name="PredictionInvalidationCard"
+                                                Grid.Row="1"
+                                                Padding="8"
+                                                Background="#FFFFFF"
+                                                BorderBrush="#D6DBE3"
+                                                BorderThickness="1"
+                                                CornerRadius="6">
+                                                <StackPanel>
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#596579"
+                                                        Text="INVALIDATION" />
+                                                    <TextBlock
+                                                        x:Name="PredictionInvalidationText"
+                                                        MaxLines="3"
+                                                        Text="Waiting for OpenCode."
+                                                        TextTrimming="WordEllipsis"
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border
+                                                x:Name="PredictionFinalCard"
+                                                Grid.Row="1"
+                                                Grid.Column="1"
+                                                Padding="8"
+                                                Background="#FFFFFF"
+                                                BorderBrush="#D6DBE3"
+                                                BorderThickness="1"
+                                                CornerRadius="6">
+                                                <StackPanel>
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#596579"
+                                                        Text="BOT READ" />
+                                                    <TextBlock
+                                                        x:Name="PredictionFinalReadText"
+                                                        MaxLines="2"
+                                                        Text="STATUS: LOADING"
+                                                        TextTrimming="WordEllipsis"
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
                             </StackPanel>
                         </Border>
 
