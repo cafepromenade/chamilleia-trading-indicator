@@ -34,10 +34,7 @@ python -m http.server 8000
 
 The WinUI 3 desktop app lives in [`desktop/ChamSD.Desktop`](desktop/ChamSD.Desktop). It mirrors the website strategy, adds Windows notifications, and supports unlimited webhooks with GET/POST, headers, and values.
 
-Every push and every manual workflow run builds:
-
-- `ChamSD.Desktop.Setup.exe`
-- `ChamSD.Desktop.Portable.zip`
+Every push and every manual workflow run builds `ChamSD.Desktop.Setup.exe` and uploads that NSIS installer directly to the GitHub Release. It does not upload Actions artifacts.
 
 Latest release: https://github.com/cafepromenade/chamilleia-trading-indicator/releases/latest
 

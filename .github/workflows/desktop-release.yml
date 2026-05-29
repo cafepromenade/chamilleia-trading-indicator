@@ -109,23 +109,6 @@ jobs:
             /DOUT_FILE="$env:RELEASE_DIR\ChamSD.Desktop.Setup.exe" `
             installer\ChamSD.Desktop.nsi
 
-      - name: Build portable zip
-        shell: pwsh
-        run: |
-          Compress-Archive `
-            -Path "$env:PUBLISH_DIR\*" `
-            -DestinationPath "$env:RELEASE_DIR\ChamSD.Desktop.Portable.zip" `
-            -Force
-
-      - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: ChamSD.Desktop-${{ github.run_number }}-${{ github.run_attempt }}
-          path: |
-            artifacts/release/ChamSD.Desktop.Setup.exe
-            artifacts/release/ChamSD.Desktop.Portable.zip
-          if-no-files-found: error
-
       - name: Create GitHub release
         shell: pwsh
         env:
@@ -139,7 +122,6 @@ jobs:
           git push origin $tag
           gh release create $tag `
             "$env:RELEASE_DIR\ChamSD.Desktop.Setup.exe" `
-            "$env:RELEASE_DIR\ChamSD.Desktop.Portable.zip" `
             --target $env:GITHUB_SHA `
             --title "ChamSD Desktop $tag" `
-            --notes "Automated ChamSD Desktop release from ${{ github.ref_name }} at $env:GITHUB_SHA. Includes the NSIS installer and a portable zip."
+            --notes "Automated ChamSD Desktop release from ${{ github.ref_name }} at $env:GITHUB_SHA. Includes the NSIS installer uploaded directly to this GitHub Release."

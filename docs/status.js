@@ -78,7 +78,6 @@
 
       const release = await response.json();
       const setupAsset = release.assets?.find((asset) => asset.name === "ChamSD.Desktop.Setup.exe");
-      const portableAsset = release.assets?.find((asset) => asset.name === "ChamSD.Desktop.Portable.zip");
       const releaseUrl = release.html_url || "https://github.com/cafepromenade/chamilleia-trading-indicator/releases/latest";
 
       installDesktopLinks.forEach((installDesktop) => {
@@ -91,7 +90,7 @@
 
       if (latestReleaseLink) {
         latestReleaseLink.href = releaseUrl;
-        latestReleaseLink.textContent = portableAsset ? "Latest GitHub Actions Release" : "GitHub Actions Release Page";
+        latestReleaseLink.textContent = "Latest GitHub Actions Release";
         latestReleaseLink.title = release.tag_name
           ? `View ${release.tag_name} release assets`
           : "View latest release assets";

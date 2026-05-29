@@ -7,6 +7,8 @@ const pineCode = fs.readFileSync("indicator/ChamilleiaSupplyDemand.pine", "utf8"
 const statusCode = fs.readFileSync("docs/status.js", "utf8");
 const styleCode = fs.readFileSync("docs/style.css", "utf8");
 const htmlCode = fs.readFileSync("docs/index.html", "utf8");
+const releaseWorkflowCode = fs.readFileSync(".github/workflows/desktop-release.yml", "utf8");
+const readmeCode = fs.readFileSync("README.md", "utf8");
 const desktopStrategyCode = fs.readFileSync("desktop/ChamSD.Desktop/StrategyEngine.cs", "utf8");
 const context = { window: {} };
 vm.createContext(context);
@@ -501,6 +503,17 @@ function testWebsiteLinksLatestDesktopInstaller() {
   assert(htmlCode.includes("Latest GitHub Actions Release"), "website should visibly link to the latest GitHub Actions release");
 }
 
+function testReleaseWorkflowUploadsOnlyNsisInstallerToRelease() {
+  assert(!releaseWorkflowCode.includes("actions/upload-artifact"), "release workflow must not upload Actions artifacts");
+  assert(!releaseWorkflowCode.includes("Upload workflow artifacts"), "release workflow must not keep a workflow artifact upload step");
+  assert(!releaseWorkflowCode.includes("ChamSD.Desktop.Portable.zip"), "release workflow should not package or release a portable zip");
+  assert(releaseWorkflowCode.includes("gh release create"), "release workflow should create a GitHub Release directly");
+  assert(releaseWorkflowCode.includes("\"$env:RELEASE_DIR\\ChamSD.Desktop.Setup.exe\""), "release workflow should attach the NSIS installer to the GitHub Release");
+  assert(statusCode.includes("ChamSD.Desktop.Setup.exe"), "website should still target the latest NSIS installer asset");
+  assert(!statusCode.includes("ChamSD.Desktop.Portable.zip"), "website should not look for a portable zip release asset");
+  assert(readmeCode.includes("uploads that NSIS installer directly to the GitHub Release"), "README should document direct installer release uploads");
+}
+
 function testWebsitePredictionIsFullyGuiified() {
   for (const id of ["prediction-thinking", "prediction-next", "prediction-invalid", "prediction-final"]) {
     assert(htmlCode.includes(`id="${id}"`), `website prediction panel should expose ${id} card`);
@@ -606,6 +619,7 @@ testWebsiteHasNoExampleOrAdClutter();
 testWebsiteUsesLiveMultiTimeframeDataOnly();
 testWebsiteSkipsMalformedLiveBars();
 testWebsiteLinksLatestDesktopInstaller();
+testReleaseWorkflowUploadsOnlyNsisInstallerToRelease();
 testWebsitePredictionIsFullyGuiified();
 testWebsiteUsesTwentyFourHourTimeOnly();
 testWebsiteAndDesktopStrategyParityContract();
