@@ -16,6 +16,7 @@ jobs:
 
     env:
       PROJECT_PATH: desktop/ChamSD.Desktop/ChamSD.Desktop.csproj
+      TEST_PROJECT_PATH: desktop/ChamSD.Tests/ChamSD.Tests.csproj
       APP_NAME: ChamSD.Desktop
       PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish\ChamSD.Desktop
       RELEASE_DIR: ${{ github.workspace }}\artifacts\release
@@ -42,6 +43,10 @@ jobs:
       - name: Test website strategy engine
         shell: pwsh
         run: npm test
+
+      - name: Test desktop strategy engine
+        shell: pwsh
+        run: dotnet run --project $env:TEST_PROJECT_PATH -c Release
 
       - name: Install NSIS
         shell: pwsh
