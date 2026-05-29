@@ -1,0 +1,104 @@
+name: Build desktop release
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  desktop-release:
+    name: Build NSIS installer
+    runs-on: windows-latest
+
+    env:
+      PROJECT_PATH: desktop/ChamSD.Desktop/ChamSD.Desktop.csproj
+      APP_NAME: ChamSD.Desktop
+      PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish\ChamSD.Desktop
+      RELEASE_DIR: ${{ github.workspace }}\artifacts\release
+      VERSION: 0.0.${{ github.run_number }}
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+      DOTNET_NOLOGO: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          $nsisPath = "${env:ProgramFiles(x86)}\NSIS"
+          Add-Content $env:GITHUB_PATH $nsisPath
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore $env:PROJECT_PATH -r win-x64
+
+      - name: Publish desktop app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:PUBLISH_DIR | Out-Null
+          dotnet publish $env:PROJECT_PATH `
+            -c Release `
+            -p:Platform=x64 `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=false `
+            -p:PublishTrimmed=false `
+            -p:PublishDir="$env:PUBLISH_DIR\"
+
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:RELEASE_DIR | Out-Null
+          makensis `
+            /DVERSION=$env:VERSION `
+            /DPUBLISH_DIR="$env:PUBLISH_DIR" `
+            /DOUT_FILE="$env:RELEASE_DIR\ChamSD.Desktop.Setup.exe" `
+            installer\ChamSD.Desktop.nsi
+
+      - name: Build portable zip
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "$env:PUBLISH_DIR\*" `
+            -DestinationPath "$env:RELEASE_DIR\ChamSD.Desktop.Portable.zip" `
+            -Force
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChamSD.Desktop-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            artifacts/release/ChamSD.Desktop.Setup.exe
+            artifacts/release/ChamSD.Desktop.Portable.zip
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $safeRef = "${{ github.ref_name }}" -replace '[^A-Za-z0-9._-]', '-'
+          $tag = "desktop-$safeRef-${{ github.run_number }}-${{ github.run_attempt }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag $tag $env:GITHUB_SHA
+          git push origin $tag
+          gh release create $tag `
+            "$env:RELEASE_DIR\ChamSD.Desktop.Setup.exe" `
+            "$env:RELEASE_DIR\ChamSD.Desktop.Portable.zip" `
+            --target $env:GITHUB_SHA `
+            --title "ChamSD Desktop $tag" `
+            --notes "Automated ChamSD Desktop release from ${{ github.ref_name }} at $env:GITHUB_SHA. Includes the NSIS installer and a portable zip."

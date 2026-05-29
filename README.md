@@ -54,6 +54,14 @@ changes `docs/` republishes the site, no manual step. To preview locally:
 cd docs && python -m http.server 8000   # then open http://localhost:8000
 ```
 
+## Desktop releases
+Every push to a branch and every manual workflow run builds the WinUI desktop app
+on GitHub Actions, packages a per-user NSIS installer, uploads a portable zip,
+and publishes both files to a GitHub Release. The release workflow lives at
+[`/.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml)
+and the installer definition lives at
+[`/installer/ChamSD.Desktop.nsi`](installer/ChamSD.Desktop.nsi).
+
 ## ⚠️ Disclaimer
 This is an educational tool that encodes a discretionary trading plan. It is
 **not financial advice**. Indicator signals are mechanical approximations of
