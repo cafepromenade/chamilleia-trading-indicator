@@ -7,6 +7,7 @@ const pineCode = fs.readFileSync("indicator/ChamilleiaSupplyDemand.pine", "utf8"
 const statusCode = fs.readFileSync("docs/status.js", "utf8");
 const styleCode = fs.readFileSync("docs/style.css", "utf8");
 const htmlCode = fs.readFileSync("docs/index.html", "utf8");
+const desktopStrategyCode = fs.readFileSync("desktop/ChamSD.Desktop/StrategyEngine.cs", "utf8");
 const context = { window: {} };
 vm.createContext(context);
 vm.runInContext(code, context);
@@ -516,6 +517,75 @@ function testWebsiteUsesTwentyFourHourTimeOnly() {
   assert(!/\b(AM|PM)\b/.test([htmlCode, statusCode].join("\n")), "website public UI code must not contain AM/PM time labels");
 }
 
+function testWebsiteAndDesktopStrategyParityContract() {
+  const requiredSharedText = [
+    "STATUS: WAIT",
+    "STATUS: BUY",
+    "STATUS: A+ BUY",
+    "STATUS: SELL",
+    "STATUS: A+ SELL",
+    "STATUS: WAIT SESSION BUY",
+    "STATUS: WAIT SESSION SELL",
+    "STATUS: WAIT CONFIRM BUY",
+    "STATUS: WAIT CONFIRM SELL",
+    "STATUS: WAIT RANGE BUY",
+    "STATUS: WAIT RANGE SELL",
+    "STATUS: NO TRADE",
+    "SHIFT OF GEARS",
+    "CONSOLIDATION FILTER",
+    "NO TARGET FILTER",
+    "CONTINUATION GATE",
+    "SESSION GATE",
+    "TOP-DOWN GATE",
+    "COUNTER-TREND GATE",
+    "SUPPORT / RESISTANCE",
+    "ICC phase",
+    "Top-down story",
+    "Trading session",
+    "4H/1H bias",
+    "No-trade zone",
+    "Primary indication reclaim",
+    "5M structure alignment",
+    "Zone tap",
+    "Newest zone only",
+    "Entry trigger",
+    "Stop/exit plan",
+    "Invalidation",
+    "Minor BOS reset",
+    "Shift of gears",
+    "Range fallback",
+    "Consolidation/ATH filter",
+    "Counter trend-line break",
+    "AGGRESSIVE / CONSERVATIVE / BREAK OF CANDLE",
+    "RANGE SUPPORT 1:1",
+    "RANGE RESISTANCE 1:1",
+    "COUNTER-TREND STRICT 1:1",
+    "75-90%",
+    "100% at 1:1",
+    "09:30 ET",
+  ];
+
+  for (const text of requiredSharedText) {
+    assert(code.includes(text), `website strategy should include parity text: ${text}`);
+    assert(desktopStrategyCode.includes(text), `desktop strategy should include parity text: ${text}`);
+  }
+
+  const sharedRules = [
+    ["MaxZones = 1", "maxZones: 1"],
+    ["AvgRangeLen = 5", "avgRangeLen: 5"],
+    ["ImpulseMult = 0.6", "impulseMult: 0.6"],
+    ["CounterBreakReady", "counterBreakReady"],
+    ["MinorResetReady", "minorResetReady"],
+    ["NoHistoricalTarget", "noHistoricalTarget"],
+    ["ShiftOfGears", "shiftOfGears"],
+  ];
+
+  for (const [desktopText, websiteText] of sharedRules) {
+    assert(desktopStrategyCode.includes(desktopText), `desktop strategy should keep rule ${desktopText}`);
+    assert(code.includes(websiteText), `website strategy should keep rule ${websiteText}`);
+  }
+}
+
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testShiftOfGearsFlipsAfterFailedContinuation();
@@ -536,5 +606,6 @@ testWebsiteSkipsMalformedLiveBars();
 testWebsiteLinksLatestDesktopInstaller();
 testWebsitePredictionIsFullyGuiified();
 testWebsiteUsesTwentyFourHourTimeOnly();
+testWebsiteAndDesktopStrategyParityContract();
 
 console.log("indicator-engine tests passed");
