@@ -78,6 +78,8 @@ public sealed class RiskPlan
     public double? TargetOne { get; init; }
     public double? TargetTwo { get; init; }
     public string Text { get; init; } = string.Empty;
+    public string EntryMode { get; init; } = "-";
+    public bool StopWithinLimit { get; init; } = true;
 }
 
 public sealed class StrategyDecision
@@ -88,8 +90,13 @@ public sealed class StrategyDecision
     public string Phase { get; init; } = "INDICATION";
     public int Confidence { get; init; }
     public BiasChoice Bias { get; init; } = new();
+    public HtfBias D1Bias { get; init; } = new();
+    public HtfBias M30Bias { get; init; } = new();
+    public HtfBias M15Bias { get; init; } = new();
     public HtfBias H1Bias { get; init; } = new();
     public HtfBias H4Bias { get; init; } = new();
+    public string SessionText { get; init; } = string.Empty;
+    public bool SessionOk { get; init; }
     public ChamilleiaStatus Execution { get; init; } = new();
     public IReadOnlyList<ChecklistItem> Checklist { get; init; } = Array.Empty<ChecklistItem>();
     public RiskPlan Risk { get; init; } = new();

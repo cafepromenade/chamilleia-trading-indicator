@@ -62,12 +62,12 @@
 
                 <Grid
                     Grid.Row="1"
-                    MaxWidth="1160"
-                    HorizontalAlignment="Stretch"
+                    MaxWidth="1080"
+                    HorizontalAlignment="Left"
                     ColumnSpacing="14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="340" />
+                        <ColumnDefinition Width="310" />
                     </Grid.ColumnDefinitions>
 
                     <Grid RowSpacing="12">
@@ -133,7 +133,7 @@
                                 <Canvas
                                     x:Name="ChartCanvas"
                                     Grid.Row="1"
-                                    MinHeight="280"
+                                    MinHeight="220"
                                     MinWidth="540"
                                     Background="#0E1726"
                                     RenderTransformOrigin="0.5,0.5"
@@ -162,32 +162,49 @@
                                         FontSize="17"
                                         FontWeight="SemiBold"
                                         Text="Live Facts" />
-                                    <Grid RowSpacing="8" ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="150" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                        <TextBlock FontWeight="SemiBold" Text="Market" />
-                                        <TextBlock x:Name="FactMarketText" Grid.Column="1" Text="-" />
-                                        <TextBlock Grid.Row="1" FontWeight="SemiBold" Text="HTF bias" />
-                                        <TextBlock x:Name="FactBiasText" Grid.Row="1" Grid.Column="1" Text="-" />
-                                        <TextBlock Grid.Row="2" FontWeight="SemiBold" Text="Last close" />
-                                        <TextBlock x:Name="FactCloseText" Grid.Row="2" Grid.Column="1" Text="-" />
-                                        <TextBlock Grid.Row="3" FontWeight="SemiBold" Text="Last candle" />
-                                        <TextBlock x:Name="FactCandleText" Grid.Row="3" Grid.Column="1" Text="-" />
-                                        <TextBlock Grid.Row="4" FontWeight="SemiBold" Text="1H" />
-                                        <TextBlock x:Name="FactH1Text" Grid.Row="4" Grid.Column="1" Text="-" TextWrapping="Wrap" />
-                                        <TextBlock Grid.Row="5" FontWeight="SemiBold" Text="4H" />
-                                        <TextBlock x:Name="FactH4Text" Grid.Row="5" Grid.Column="1" Text="-" TextWrapping="Wrap" />
-                                    </Grid>
+                                    <ScrollViewer
+                                        MaxHeight="190"
+                                        HorizontalScrollBarVisibility="Disabled"
+                                        VerticalScrollBarVisibility="Auto">
+                                        <Grid RowSpacing="8" ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock FontWeight="SemiBold" Text="Market" />
+                                            <TextBlock x:Name="FactMarketText" Grid.Column="1" Text="-" />
+                                            <TextBlock Grid.Row="1" FontWeight="SemiBold" Text="HTF bias" />
+                                            <TextBlock x:Name="FactBiasText" Grid.Row="1" Grid.Column="1" Text="-" />
+                                            <TextBlock Grid.Row="2" FontWeight="SemiBold" Text="Last close" />
+                                            <TextBlock x:Name="FactCloseText" Grid.Row="2" Grid.Column="1" Text="-" />
+                                            <TextBlock Grid.Row="3" FontWeight="SemiBold" Text="Last candle" />
+                                            <TextBlock x:Name="FactCandleText" Grid.Row="3" Grid.Column="1" Text="-" />
+                                            <TextBlock Grid.Row="4" FontWeight="SemiBold" Text="Session" />
+                                            <TextBlock x:Name="FactSessionText" Grid.Row="4" Grid.Column="1" Text="-" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="5" FontWeight="SemiBold" Text="Daily" />
+                                            <TextBlock x:Name="FactD1Text" Grid.Row="5" Grid.Column="1" Text="-" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="6" FontWeight="SemiBold" Text="4H" />
+                                            <TextBlock x:Name="FactH4Text" Grid.Row="6" Grid.Column="1" Text="-" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="7" FontWeight="SemiBold" Text="1H" />
+                                            <TextBlock x:Name="FactH1Text" Grid.Row="7" Grid.Column="1" Text="-" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="8" FontWeight="SemiBold" Text="30M" />
+                                            <TextBlock x:Name="FactM30Text" Grid.Row="8" Grid.Column="1" Text="-" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="9" FontWeight="SemiBold" Text="15M" />
+                                            <TextBlock x:Name="FactM15Text" Grid.Row="9" Grid.Column="1" Text="-" TextWrapping="Wrap" />
+                                        </Grid>
+                                    </ScrollViewer>
                                 </StackPanel>
                             </Border>
 

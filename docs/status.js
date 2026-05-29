@@ -16,7 +16,6 @@
 
   const engineSettings = {
     pivotLen: 2,
-    trendLen: 8,
     avgRangeLen: 5,
     impulseMult: 0.6,
   };
@@ -223,11 +222,14 @@
     riskNote.textContent = risk.text;
   }
 
-  function renderEngineResult({ productId, candles, h1Candles, h4Candles, source }) {
+  function renderEngineResult({ productId, candles, m15Candles, m30Candles, h1Candles, h4Candles, d1Candles, source }) {
     const decision = window.ChamilleiaEngine.calculateStrategyDecision({
       executionCandles: candles,
+      m15Candles,
+      m30Candles,
       h1Candles,
       h4Candles,
+      d1Candles,
     }, engineSettings);
     const latest = decision.execution.latest;
     const lastCandle = candles[candles.length - 1];
@@ -236,12 +238,16 @@
     liveStatusBar.querySelector(".bar-market").textContent = productId;
     setEngineOutput(decision);
     renderLiveChart({ candles: visibleCandles, result: decision.execution, productId });
-    runnerCaption.textContent = `${productId} live 5-minute chart with 1H and 4H strategy bias from ${source}. Last 5M candle: ${formatDateTime(lastCandle.time)}.`;
+    runnerCaption.textContent = `${productId} live 5-minute execution with Daily, 4H, 1H, 30M, and 15M top-down bias from ${source}. Last 5M candle: ${formatDateTime(lastCandle.time)}.`;
     engineFacts.innerHTML = [
       renderFact("Market", productId),
       renderFact("Phase", decision.phase),
       renderFact("HTF bias", `${decision.bias.direction.toUpperCase()} (${decision.bias.source})`),
       renderFact("Confidence", `${decision.confidence}%`),
+      renderFact("Session", decision.sessionText),
+      renderFact("Daily", decision.d1Bias.reason),
+      renderFact("30M", decision.m30Bias.reason),
+      renderFact("15M", decision.m15Bias.reason),
       renderFact("Last close", formatPrice(latest.close)),
       renderFact("Last candle", formatDateTime(lastCandle.time)),
     ].join("");
@@ -304,26 +310,35 @@
     });
 
     try {
-      const [payload5m, payload1h, payload4h] = await Promise.all([
+      const [payload5m, payload15m, payload30m, payload1h, payload4h, payload1d] = await Promise.all([
         fetchJsonWithFallback(biquoteUrl(market.symbol, "5m")),
+        fetchJsonWithFallback(biquoteUrl(market.symbol, "15m")),
+        fetchJsonWithFallback(biquoteUrl(market.symbol, "30m")),
         fetchJsonWithFallback(biquoteUrl(market.symbol, "1h")),
         fetchJsonWithFallback(biquoteUrl(market.symbol, "4h")),
+        fetchJsonWithFallback(biquoteUrl(market.symbol, "1d")),
       ]);
       const candles = parseBiquoteCandles(payload5m);
+      const m15Candles = parseBiquoteCandles(payload15m);
+      const m30Candles = parseBiquoteCandles(payload30m);
       const h1Candles = parseBiquoteCandles(payload1h);
       const h4Candles = parseBiquoteCandles(payload4h);
+      const d1Candles = parseBiquoteCandles(payload1d);
       if (candles.length < 30) {
         throw new Error("Not enough 5M candle data returned");
       }
-      if (h1Candles.length < 30 || h4Candles.length < 30) {
+      if (m15Candles.length < 30 || m30Candles.length < 30 || h1Candles.length < 30 || h4Candles.length < 30 || d1Candles.length < 30) {
         throw new Error("Not enough higher-timeframe candle data returned");
       }
 
       renderEngineResult({
         productId: market.name,
         candles,
+        m15Candles,
+        m30Candles,
         h1Candles,
         h4Candles,
+        d1Candles,
         source: market.source,
       });
     } catch (error) {

@@ -9,18 +9,25 @@ public sealed class StrategyEngine
 
     public StrategyDecision CalculateStrategyDecision(
         IReadOnlyList<MarketCandle> executionCandles,
+        IReadOnlyList<MarketCandle> m15Candles,
+        IReadOnlyList<MarketCandle> m30Candles,
         IReadOnlyList<MarketCandle> h1Candles,
-        IReadOnlyList<MarketCandle> h4Candles)
+        IReadOnlyList<MarketCandle> h4Candles,
+        IReadOnlyList<MarketCandle> d1Candles)
     {
-        if (executionCandles.Count < 30 || h1Candles.Count < 30 || h4Candles.Count < 30)
+        if (executionCandles.Count < 30 || m15Candles.Count < 30 || m30Candles.Count < 30 || h1Candles.Count < 30 || h4Candles.Count < 30 || d1Candles.Count < 30)
         {
             throw new InvalidOperationException("At least 30 live candles are required for each timeframe.");
         }
 
         var execution = CalculateChamilleiaStatus(executionCandles);
+        var m15Bias = CalculateHtfBias(m15Candles, "15M");
+        var m30Bias = CalculateHtfBias(m30Candles, "30M");
         var h1Bias = CalculateHtfBias(h1Candles, "1H");
         var h4Bias = CalculateHtfBias(h4Candles, "4H");
+        var d1Bias = CalculateHtfBias(d1Candles, "Daily");
         var bias = ChooseBias(h4Bias, h1Bias);
+        var session = GetSessionContext(executionCandles[^1].Time);
         var latest = execution.Latest;
         var alignedBuy = latest.BuyTrigger && bias.Direction == "bullish";
         var alignedSell = latest.SellTrigger && bias.Direction == "bearish";
@@ -115,6 +122,8 @@ public sealed class StrategyEngine
                 ? h4Bias.IndicationLevel ?? h1Bias.IndicationLevel
                 : null;
 
+        var riskPlan = CalculateRiskPlan(latest, bias.Direction);
+
         return new StrategyDecision
         {
             Label = label,
@@ -123,12 +132,24 @@ public sealed class StrategyEngine
             Phase = phase,
             Confidence = confidence,
             Bias = bias,
+            D1Bias = d1Bias,
+            M30Bias = m30Bias,
+            M15Bias = m15Bias,
             H1Bias = h1Bias,
             H4Bias = h4Bias,
+            SessionText = session.Text,
+            SessionOk = session.Ok,
             Execution = execution,
             Checklist = new[]
             {
                 new ChecklistItem { Label = "ICC phase", Ok = phase != "BASELINE SCAN", Text = $"{phase}: {note}" },
+                new ChecklistItem
+                {
+                    Label = "Top-down story",
+                    Ok = d1Bias.Direction == "neutral" || d1Bias.Direction == bias.Direction || bias.Direction == "neutral",
+                    Text = $"Daily {d1Bias.Direction}, 4H {h4Bias.Direction}, 1H {h1Bias.Direction}, 30M {m30Bias.Direction}, 15M {m15Bias.Direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.",
+                },
+                new ChecklistItem { Label = "Trading session", Ok = session.Ok, Text = session.Text },
                 new ChecklistItem { Label = "4H/1H bias", Ok = bias.Direction != "neutral", Text = $"{bias.Reason} Indication level: {FormatNullable(indicationLevel)}." },
                 new ChecklistItem
                 {
@@ -148,8 +169,9 @@ public sealed class StrategyEngine
                 {
                     Label = "Entry trigger",
                     Ok = alignedBuy || alignedSell,
-                    Text = alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : "No aligned break-of-candle trigger yet.",
+                    Text = alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : EntryModeText(latest, bias.Direction, hasAlignedTap),
                 },
+                new ChecklistItem { Label = "Stop/exit plan", Ok = riskPlan.StopWithinLimit, Text = riskPlan.Text },
                 new ChecklistItem
                 {
                     Label = "Invalidation",
@@ -163,7 +185,7 @@ public sealed class StrategyEngine
                     Text = rangeFallback ? $"Range floor {FormatNullable(rangeLow)}, ceiling {FormatNullable(rangeHigh)}. {(nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait.")}" : "Not using support/resistance fallback while HTF bias is active.",
                 },
             },
-            Risk = CalculateRiskPlan(latest, bias.Direction),
+            Risk = riskPlan,
         };
     }
 
@@ -391,7 +413,11 @@ public sealed class StrategyEngine
 
         if (!tapMatchesDirection || direction == "neutral")
         {
-            return new RiskPlan { Text = "No live entry plan until price taps a valid zone and gives a trigger." };
+            return new RiskPlan
+            {
+                EntryMode = "WAIT",
+                Text = "No live entry plan until price taps a valid zone and gives a trigger. If market stays sideways, use support/resistance only with strict 1:1.",
+            };
         }
 
         var entry = latest.Close;
@@ -404,9 +430,15 @@ public sealed class StrategyEngine
             {
                 Entry = Round(entry),
                 Stop = Round(stop),
+                EntryMode = "ZONE TAPPED",
                 Text = "Risk cannot be calculated from the current live zone.",
             };
         }
+
+        var stopWithinLimit = risk <= 50;
+        var stopText = stopWithinLimit
+            ? "Stop size is inside the 50-point guide."
+            : "Stop is larger than the 50-point guide; use the entering candle or skip.";
 
         return new RiskPlan
         {
@@ -415,8 +447,54 @@ public sealed class StrategyEngine
             Risk = Round(risk),
             TargetOne = Round(direction == "bullish" ? entry + risk : entry - risk),
             TargetTwo = Round(direction == "bullish" ? entry + risk * 2 : entry - risk * 2),
-            Text = "Stop is outside the tapped zone. TP1 is 1:1, TP2 is 1:2.",
+            EntryMode = "BREAK OF CANDLE",
+            StopWithinLimit = stopWithinLimit,
+            Text = $"Stop is outside the tapped zone. {stopText} TP1 is 1:1: secure partials and move stop to break-even; TP2 is the runner toward 1:2 or structure.",
         };
+    }
+
+    private static string EntryModeText(ChamilleiaLatest latest, string direction, bool hasAlignedTap)
+    {
+        if (!hasAlignedTap)
+        {
+            return "No entry mode yet. Wait for the newest supply/demand zone tap.";
+        }
+
+        if (latest.LastTap is null)
+        {
+            return "Zone state is not ready.";
+        }
+
+        var conservativeReady = direction == "bullish"
+            ? latest.Close > latest.LastTap.Top
+            : direction == "bearish" && latest.Close < latest.LastTap.Bot;
+        if (conservativeReady)
+        {
+            return "Conservative entry can be watched: price closed out of the zone. Break-of-candle confirmation is still preferred.";
+        }
+
+        return "Aggressive entry would mean pressing inside the zone; safest rule waits for candle close and next-candle break.";
+    }
+
+    private static (bool Ok, string Text) GetSessionContext(DateTimeOffset candleTime)
+    {
+        TimeZoneInfo eastern;
+        try
+        {
+            eastern = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            eastern = TimeZoneInfo.Utc;
+        }
+
+        var local = TimeZoneInfo.ConvertTime(candleTime, eastern);
+        var tod = local.TimeOfDay;
+        var london = tod >= new TimeSpan(3, 0, 0) && tod <= new TimeSpan(12, 0, 0);
+        var ny = tod >= new TimeSpan(9, 30, 0) && tod <= new TimeSpan(16, 0, 0);
+        var ok = london || ny;
+        var name = london && ny ? "London/New York overlap" : london ? "London session" : ny ? "New York session" : "outside main sessions";
+        return (ok, $"{local:HH:mm} ET is {name}. Doc rule prefers London or New York 09:30 ET volume.");
     }
 
     private static (string Label, string Note, string ClassName) StatusForBar(bool buyTrigger, bool sellTrigger, bool aPlusBuy, bool aPlusSell, bool bull, bool bear)

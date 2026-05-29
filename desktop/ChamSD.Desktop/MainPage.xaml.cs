@@ -72,15 +72,21 @@ public sealed partial class MainPage : Page
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(22));
             var executionTask = _marketData.GetCandlesAsync(market.Symbol, "5m", timeout.Token);
+            var m15Task = _marketData.GetCandlesAsync(market.Symbol, "15m", timeout.Token);
+            var m30Task = _marketData.GetCandlesAsync(market.Symbol, "30m", timeout.Token);
             var h1Task = _marketData.GetCandlesAsync(market.Symbol, "1h", timeout.Token);
             var h4Task = _marketData.GetCandlesAsync(market.Symbol, "4h", timeout.Token);
-            await Task.WhenAll(executionTask, h1Task, h4Task);
+            var d1Task = _marketData.GetCandlesAsync(market.Symbol, "1d", timeout.Token);
+            await Task.WhenAll(executionTask, m15Task, m30Task, h1Task, h4Task, d1Task);
 
             var executionCandles = executionTask.Result;
+            var m15Candles = m15Task.Result;
+            var m30Candles = m30Task.Result;
             var h1Candles = h1Task.Result;
             var h4Candles = h4Task.Result;
+            var d1Candles = d1Task.Result;
             var previousStatus = _currentDecision?.Label;
-            var decision = _strategyEngine.CalculateStrategyDecision(executionCandles, h1Candles, h4Candles);
+            var decision = _strategyEngine.CalculateStrategyDecision(executionCandles, m15Candles, m30Candles, h1Candles, h4Candles, d1Candles);
 
             _currentMarket = market;
             _currentDecision = decision;
@@ -121,6 +127,10 @@ public sealed partial class MainPage : Page
         FactBiasText.Text = $"{decision.Bias.Direction.ToUpperInvariant()} ({decision.Bias.Source})";
         FactCloseText.Text = FormatPrice(decision.Execution.Latest.Close);
         FactCandleText.Text = latestCandle.Time.ToLocalTime().ToString("MMM d, HH:mm zzz");
+        FactSessionText.Text = decision.SessionText;
+        FactD1Text.Text = decision.D1Bias.Reason;
+        FactM30Text.Text = decision.M30Bias.Reason;
+        FactM15Text.Text = decision.M15Bias.Reason;
         FactH1Text.Text = decision.H1Bias.Reason;
         FactH4Text.Text = decision.H4Bias.Reason;
         RiskEntryText.Text = FormatNullablePrice(decision.Risk.Entry);
@@ -222,7 +232,7 @@ public sealed partial class MainPage : Page
         var height = Math.Max(ChartCanvas.ActualHeight, 360);
         ChartCanvas.Clip = new RectangleGeometry { Rect = new Rect(0, 0, width, height) };
         const double padLeft = 44;
-        const double padRight = 72;
+        const double padRight = 96;
         const double padTop = 38;
         const double padBottom = 42;
         var chartWidth = width - padLeft - padRight;
@@ -486,6 +496,11 @@ Risk stop: {decision.Risk.Stop?.ToString() ?? "-"}
 Risk TP1: {decision.Risk.TargetOne?.ToString() ?? "-"}
 Risk TP2: {decision.Risk.TargetTwo?.ToString() ?? "-"}
 Risk note: {decision.Risk.Text}
+Entry mode: {decision.Risk.EntryMode}
+Session: {decision.SessionText}
+Daily: {decision.D1Bias.Direction} - {decision.D1Bias.Reason}
+30M: {decision.M30Bias.Direction} - {decision.M30Bias.Reason}
+15M: {decision.M15Bias.Direction} - {decision.M15Bias.Reason}
 
 Strategy rules:
 - 4H overrides 1H. HTF body-close breakout creates the indication level.

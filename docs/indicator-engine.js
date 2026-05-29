@@ -379,7 +379,9 @@
         risk: null,
         targetOne: null,
         targetTwo: null,
-        text: "No live entry plan until price taps a valid zone and gives a trigger.",
+        entryMode: "WAIT",
+        stopWithinLimit: true,
+        text: "No live entry plan until price taps a valid zone and gives a trigger. If market stays sideways, use support/resistance only with strict 1:1.",
       };
     }
 
@@ -394,10 +396,16 @@
         risk: null,
         targetOne: null,
         targetTwo: null,
+        entryMode: "ZONE TAPPED",
+        stopWithinLimit: true,
         text: "Risk cannot be calculated from the current live zone.",
       };
     }
 
+    const stopWithinLimit = risk <= 50;
+    const stopText = stopWithinLimit
+      ? "Stop size is inside the 50-point guide."
+      : "Stop is larger than the 50-point guide; use the entering candle or skip.";
     const targetOne = direction === "bullish" ? entry + risk : entry - risk;
     const targetTwo = direction === "bullish" ? entry + risk * 2 : entry - risk * 2;
     return {
@@ -406,16 +414,57 @@
       risk: round(risk),
       targetOne: round(targetOne),
       targetTwo: round(targetTwo),
-      text: "Stop is outside the tapped zone. TP1 is 1:1, TP2 is 1:2.",
+      entryMode: "BREAK OF CANDLE",
+      stopWithinLimit,
+      text: `Stop is outside the tapped zone. ${stopText} TP1 is 1:1: secure partials and move stop to break-even; TP2 is the runner toward 1:2 or structure.`,
     };
   }
 
-  function calculateStrategyDecision({ executionCandles, h1Candles, h4Candles }, options = {}) {
+  function getSessionContext(seconds) {
+    const date = new Date(seconds * 1000);
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(date);
+    const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+    const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+    const total = hour * 60 + minute;
+    const london = total >= 180 && total <= 720;
+    const ny = total >= 570 && total <= 960;
+    const name = london && ny ? "London/New York overlap" : london ? "London session" : ny ? "New York session" : "outside main sessions";
+    return {
+      ok: london || ny,
+      text: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")} ET is ${name}. Doc rule prefers London or New York 09:30 ET volume.`,
+    };
+  }
+
+  function entryModeText(latest, direction, hasAlignedTap) {
+    if (!hasAlignedTap) {
+      return "No entry mode yet. Wait for the newest supply/demand zone tap.";
+    }
+    if (!latest.lastTap) {
+      return "Zone state is not ready.";
+    }
+    const conservativeReady = direction === "bullish"
+      ? latest.close > latest.lastTap.top
+      : direction === "bearish" && latest.close < latest.lastTap.bot;
+    return conservativeReady
+      ? "Conservative entry can be watched: price closed out of the zone. Break-of-candle confirmation is still preferred."
+      : "Aggressive entry would mean pressing inside the zone; safest rule waits for candle close and next-candle break.";
+  }
+
+  function calculateStrategyDecision({ executionCandles, m15Candles, m30Candles, h1Candles, h4Candles, d1Candles }, options = {}) {
     const execution = calculateChamilleiaStatus(executionCandles, options);
+    const m15Bias = calculateHtfBias(m15Candles, "15M");
+    const m30Bias = calculateHtfBias(m30Candles, "30M");
     const h1Bias = calculateHtfBias(h1Candles, "1H");
     const h4Bias = calculateHtfBias(h4Candles, "4H");
+    const d1Bias = calculateHtfBias(d1Candles, "Daily");
     const bias = chooseBias(h4Bias, h1Bias);
     const latest = execution.latest;
+    const session = getSessionContext(executionCandles[executionCandles.length - 1].time);
     const alignedBuy = latest.buyTrigger && bias.direction === "bullish";
     const alignedSell = latest.sellTrigger && bias.direction === "bearish";
     const conflict = (latest.buyTrigger && bias.direction === "bearish") || (latest.sellTrigger && bias.direction === "bullish");
@@ -489,6 +538,12 @@
     if (newestZoneInvalidated) confidence = Math.min(confidence, 35);
     if (conflict) confidence = Math.min(confidence, 25);
     confidence = Math.max(0, Math.min(100, confidence));
+    const risk = calculateRiskPlan(latest, bias.direction);
+    const indicationLevel = bias.direction === "bullish"
+      ? h4Bias.indicationLevel ?? h1Bias.indicationLevel
+      : bias.direction === "bearish"
+        ? h4Bias.indicationLevel ?? h1Bias.indicationLevel
+        : null;
 
     return {
       label,
@@ -497,19 +552,27 @@
       phase,
       confidence,
       bias,
+      d1Bias,
+      m30Bias,
+      m15Bias,
       h1Bias,
       h4Bias,
+      sessionText: session.text,
+      sessionOk: session.ok,
       execution,
       checklist: [
         { label: "ICC phase", ok: phase !== "BASELINE SCAN", text: `${phase}: ${note}` },
-        { label: "4H/1H bias", ok: bias.direction !== "neutral", text: `${bias.reason} Indication level: ${bias.direction === "bullish" ? h4Bias.indicationLevel ?? h1Bias.indicationLevel ?? "-" : bias.direction === "bearish" ? h4Bias.indicationLevel ?? h1Bias.indicationLevel ?? "-" : "-"}.` },
+        { label: "Top-down story", ok: d1Bias.direction === "neutral" || d1Bias.direction === bias.direction || bias.direction === "neutral", text: `Daily ${d1Bias.direction}, 4H ${h4Bias.direction}, 1H ${h1Bias.direction}, 30M ${m30Bias.direction}, 15M ${m15Bias.direction}. Use Daily as context, 4H overrides 1H, then execute on 5M.` },
+        { label: "Trading session", ok: session.ok, text: session.text },
+        { label: "4H/1H bias", ok: bias.direction !== "neutral", text: `${bias.reason} Indication level: ${indicationLevel ?? "-"}.` },
         { label: "5M structure alignment", ok: (bias.direction === "bullish" && latest.bull) || (bias.direction === "bearish" && latest.bear), text: latest.bull ? "5M market structure is bullish." : latest.bear ? "5M market structure is bearish." : "5M has no clean market-structure direction." },
         { label: "Zone tap", ok: hasAlignedTap, text: hasAlignedTap ? "Price has tapped a live supply/demand zone aligned with HTF bias." : "Waiting for price to tap the newest valid zone in the HTF direction." },
-        { label: "Entry trigger", ok: alignedBuy || alignedSell, text: alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : "No aligned break-of-candle trigger yet." },
+        { label: "Entry trigger", ok: alignedBuy || alignedSell, text: alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : entryModeText(latest, bias.direction, hasAlignedTap) },
+        { label: "Stop/exit plan", ok: risk.stopWithinLimit, text: risk.text },
         { label: "Invalidation", ok: !newestZoneInvalidated, text: newestZoneInvalidated ? "Newest zone was body-closed through. Wait for minor structure reset." : "No body-close invalidation on the newest tracked zone." },
         { label: "Range fallback", ok: nearSupport || nearResistance || !rangeFallback, text: rangeFallback ? `Range floor ${rangeLow}, ceiling ${rangeHigh}. ${nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait."}` : "Not using support/resistance fallback while HTF bias is active." },
       ],
-      risk: calculateRiskPlan(latest, bias.direction),
+      risk,
     };
   }
 
