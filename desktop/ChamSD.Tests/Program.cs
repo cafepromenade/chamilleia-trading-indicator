@@ -14,6 +14,7 @@ tests.WideZoneStopUsesEnteringCandleFallback();
 tests.LowerTimeframeOppositionBlocksEntry();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
+tests.OpenCodeRejectsUnguiifiedOutputAndKeepsTrying();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
 tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
@@ -319,6 +320,32 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(output.Contains("FINAL BOT READ: STATUS: WAIT FOR BUY", StringComparison.Ordinal), "successful model output should be preserved");
     }
 
+    public void OpenCodeRejectsUnguiifiedOutputAndKeepsTrying()
+    {
+        var attemptedModels = new List<string>();
+        var service = new OpenCodeThinkingService((model, _, _) =>
+        {
+            attemptedModels.Add(model);
+            if (attemptedModels.Count == 1)
+            {
+                return Task.FromResult("This is a long paragraph, but it cannot fill the prediction cards cleanly.");
+            }
+
+            return Task.FromResult("""
+THINKING: The second free model returned the exact GUI-card format.
+PREDICTION: Wait for confirmation.
+INVALIDATION: Body close through the zone invalidates.
+FINAL BOT READ: STATUS: WAIT FOR BUY
+""");
+        });
+
+        var output = service.ThinkAsync("live prompt", "STATUS: WAIT", CancellationToken.None).GetAwaiter().GetResult();
+
+        Assert(attemptedModels.Count == 2, "OpenCode should reject unguiified text and try the next free model");
+        Assert(output.Contains("MODEL: mimo-v2.5-free", StringComparison.Ordinal), "successful formatted output should name the next working free model");
+        Assert(output.Contains("FINAL BOT READ: STATUS: WAIT FOR BUY", StringComparison.Ordinal), "formatted final bot read should be preserved");
+    }
+
     public void PredictionParserKeepsGuiCardsFilled()
     {
         var sections = PredictionParser.Parse("""
@@ -344,6 +371,7 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
     {
         var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
         var pageXaml = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml");
+        var thinkingCode = ReadRepoFile("desktop/ChamSD.Desktop/OpenCodeThinkingService.cs");
 
         Assert(pageXaml.Contains("x:Name=\"StatusFlashOverlay\"", StringComparison.Ordinal), "desktop should have a full-window status flash overlay");
         Assert(pageXaml.Contains("x:Name=\"StatusFlashTransform\"", StringComparison.Ordinal), "desktop should animate the flash overlay transform");
@@ -352,6 +380,7 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         Assert(pageCode.Contains("StatusBarTransform, \"TranslateX\"", StringComparison.Ordinal), "status bar should move on status changes");
         Assert(pageCode.Contains("ChartCanvasTransform, \"TranslateY\"", StringComparison.Ordinal), "chart should move on status changes");
         Assert(pageCode.Contains("className is \"buy\" or \"sell\" ? 1.0", StringComparison.Ordinal), "buy/sell statuses should use the strongest animation intensity");
+        Assert(thinkingCode.Contains("FINAL BOT READ:", StringComparison.Ordinal), "OpenCode usable output should require the final bot-read card");
 
         foreach (var status in new[] { "\"buy\"", "\"sell\"", "\"caution\"", "\"no-trade\"" })
         {

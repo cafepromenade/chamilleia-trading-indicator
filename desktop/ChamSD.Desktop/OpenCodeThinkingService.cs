@@ -150,12 +150,17 @@ FINAL BOT READ: {fallbackFinalRead}
 
     private static bool IsUsableModelOutput(string text)
     {
-        return !string.IsNullOrWhiteSpace(text) &&
-            !text.Contains("opencode exited with code", StringComparison.OrdinalIgnoreCase) &&
-            !text.Contains("Error:", StringComparison.OrdinalIgnoreCase) &&
-            (text.Contains("THINKING", StringComparison.OrdinalIgnoreCase) ||
-                text.Contains("PREDICTION", StringComparison.OrdinalIgnoreCase) ||
-                text.Trim().Length > 20);
+        if (string.IsNullOrWhiteSpace(text) ||
+            text.Contains("opencode exited with code", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("Error:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return text.Contains("THINKING:", StringComparison.OrdinalIgnoreCase) &&
+            text.Contains("PREDICTION:", StringComparison.OrdinalIgnoreCase) &&
+            text.Contains("INVALIDATION:", StringComparison.OrdinalIgnoreCase) &&
+            text.Contains("FINAL BOT READ:", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ShortModelName(string model)
