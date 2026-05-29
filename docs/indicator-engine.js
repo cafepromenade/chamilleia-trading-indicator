@@ -474,10 +474,10 @@
       targetOne: round(targetOne),
       targetTwo: round(targetTwo),
       structureTarget: round(structureTarget),
-      entryMode: "BREAK OF CANDLE",
+      entryMode: "AGGRESSIVE / CONSERVATIVE / BREAK OF CANDLE",
       scaleOut: "75-90%",
       stopWithinLimit,
-      text: `Stop is outside the tapped zone. ${stopText} TP1 is 1:1: secure 75-90% partials and move stop to break-even; runner targets ${structureTarget === null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2."}`,
+      text: `Entry types: aggressive inside the zone, conservative after price closes out of the zone, and break-of-candle as the preferred trigger. Stop is outside the tapped zone. ${stopText} TP1 is 1:1: secure 75-90% partials and move stop to break-even; runner targets ${structureTarget === null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2."}`,
     };
   }
 

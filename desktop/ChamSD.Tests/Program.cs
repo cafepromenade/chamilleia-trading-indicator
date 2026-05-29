@@ -76,6 +76,11 @@ internal sealed class DesktopStrategyTests
         Assert(decision.Execution.Zones.Count <= 1, "engine must keep only the newest valid zone");
         Assert(decision.Risk.ScaleOut == "75-90%", "risk plan must carry document scale-out guidance");
         Assert(decision.Risk.Text.Contains("75-90% partials", StringComparison.OrdinalIgnoreCase), "risk note must tell users to secure 75-90% partials at TP1");
+        Assert(decision.Risk.EntryMode == "AGGRESSIVE / CONSERVATIVE / BREAK OF CANDLE", "trend risk plan must expose all three documented entry types");
+        foreach (var entryType in new[] { "aggressive", "conservative", "break-of-candle" })
+        {
+            Assert(decision.Risk.Text.Contains(entryType, StringComparison.OrdinalIgnoreCase), $"risk note must explain {entryType} entry type");
+        }
     }
 
     public void RangeFallbackUsesStrictOneToOneRisk()

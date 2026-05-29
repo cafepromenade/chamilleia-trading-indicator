@@ -150,6 +150,14 @@ function testNewestZoneOnly() {
   assert(decision.execution.zones.length <= 1, "engine must keep only the newest valid zone");
   assert.strictEqual(decision.risk.scaleOut, "75-90%", "risk plan must carry document scale-out guidance");
   assert(decision.risk.text.includes("75-90% partials"), "risk note must tell users to secure 75-90% partials at TP1");
+  assert.strictEqual(
+    decision.risk.entryMode,
+    "AGGRESSIVE / CONSERVATIVE / BREAK OF CANDLE",
+    "trend risk plan must expose all three documented entry types",
+  );
+  for (const entryType of ["aggressive", "conservative", "break-of-candle"]) {
+    assert(decision.risk.text.includes(entryType), `risk note must explain ${entryType} entry type`);
+  }
 }
 
 function testRangeFallbackUsesStrictOneToOneRisk() {

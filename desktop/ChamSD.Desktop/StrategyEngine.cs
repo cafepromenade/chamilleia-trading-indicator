@@ -593,10 +593,10 @@ public sealed class StrategyEngine
             TargetOne = Round(direction == "bullish" ? entry + risk : entry - risk),
             TargetTwo = Round(direction == "bullish" ? entry + risk * 2 : entry - risk * 2),
             StructureTarget = Round(structureTarget),
-            EntryMode = "BREAK OF CANDLE",
+            EntryMode = "AGGRESSIVE / CONSERVATIVE / BREAK OF CANDLE",
             ScaleOut = "75-90%",
             StopWithinLimit = stopWithinLimit,
-            Text = $"Stop is outside the tapped zone. {stopText} TP1 is 1:1: secure 75-90% partials and move stop to break-even; runner targets {(structureTarget is null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2.")}",
+            Text = $"Entry types: aggressive inside the zone, conservative after price closes out of the zone, and break-of-candle as the preferred trigger. Stop is outside the tapped zone. {stopText} TP1 is 1:1: secure 75-90% partials and move stop to break-even; runner targets {(structureTarget is null ? "1:2 because no clean historical swing target is above/below price." : "the next major historical swing before stretching to 1:2.")}",
         };
     }
 
