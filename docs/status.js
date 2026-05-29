@@ -393,15 +393,24 @@
   }
 
   function parseBiquoteCandles(payload) {
+    if (!Array.isArray(payload?.bars)) {
+      throw new Error("Live data payload did not include candle bars");
+    }
+
     return payload.bars
-      .map((bar) => ({
-        time: Math.floor(new Date(bar.openTime).getTime() / 1000),
-        low: Number(bar.low),
-        high: Number(bar.high),
-        open: Number(bar.open),
-        close: Number(bar.close),
-        volume: Number(bar.tickVolume || bar.volume || 0),
-      }))
+      .map((bar) => {
+        const time = Math.floor(new Date(bar.openTime).getTime() / 1000);
+        const low = Number(bar.low);
+        const high = Number(bar.high);
+        const open = Number(bar.open);
+        const close = Number(bar.close);
+        const volume = Number(bar.tickVolume || bar.volume || 0);
+        if (![time, low, high, open, close, volume].every(Number.isFinite) || high < low) {
+          return null;
+        }
+        return { time, low, high, open, close, volume };
+      })
+      .filter(Boolean)
       .sort((a, b) => a.time - b.time);
   }
 

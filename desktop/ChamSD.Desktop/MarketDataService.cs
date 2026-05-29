@@ -19,18 +19,36 @@ public sealed class MarketDataService
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var payload = await JsonSerializer.DeserializeAsync<BiQuotePayload>(stream, JsonOptions, cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        var candles = ParseBiquotePayload(document.RootElement.GetRawText());
+        if (candles.Count == 0)
+        {
+            throw new InvalidOperationException("The live data server returned no valid candles.");
+        }
+
+        return candles;
+    }
+
+    public static IReadOnlyList<MarketCandle> ParseBiquotePayload(string json)
+    {
+        var payload = JsonSerializer.Deserialize<BiQuotePayload>(json, JsonOptions);
         if (payload?.Bars is null || payload.Bars.Count == 0)
         {
             throw new InvalidOperationException("The live data server returned no candles.");
         }
 
-        return payload.Bars
+        var candles = payload.Bars
             .Select(ParseBar)
             .Where(candle => candle is not null)
             .Cast<MarketCandle>()
             .OrderBy(candle => candle.Time)
             .ToList();
+        if (candles.Count == 0)
+        {
+            throw new InvalidOperationException("The live data server returned no valid candles.");
+        }
+
+        return candles;
     }
 
     private static MarketCandle? ParseBar(BiQuoteBar bar)
@@ -40,22 +58,26 @@ public sealed class MarketDataService
             return null;
         }
 
-        return new MarketCandle(
-            time,
-            Number(bar.Open),
-            Number(bar.High),
-            Number(bar.Low),
-            Number(bar.Close),
-            Number(bar.TickVolume.ValueKind == JsonValueKind.Undefined ? bar.Volume : bar.TickVolume));
+        var open = Number(bar.Open);
+        var high = Number(bar.High);
+        var low = Number(bar.Low);
+        var close = Number(bar.Close);
+        var volume = Number(bar.TickVolume.ValueKind == JsonValueKind.Undefined ? bar.Volume : bar.TickVolume);
+        if (open is null || high is null || low is null || close is null || volume is null || high < low)
+        {
+            return null;
+        }
+
+        return new MarketCandle(time, open.Value, high.Value, low.Value, close.Value, volume.Value);
     }
 
-    private static double Number(JsonElement value)
+    private static double? Number(JsonElement value)
     {
         return value.ValueKind switch
         {
-            JsonValueKind.Number => value.TryGetDouble(out var result) ? result : 0,
-            JsonValueKind.String => double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var result) ? result : 0,
-            _ => 0,
+            JsonValueKind.Number => value.TryGetDouble(out var result) && double.IsFinite(result) ? result : null,
+            JsonValueKind.String => double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var result) && double.IsFinite(result) ? result : null,
+            _ => null,
         };
     }
 

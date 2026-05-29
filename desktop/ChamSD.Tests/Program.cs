@@ -21,6 +21,7 @@ tests.DesktopWindowIsFixedSize();
 tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
 tests.DesktopUsesLiveMultiTimeframeDataOnly();
 tests.DesktopUsesTwentyFourHourTimeOnly();
+tests.DesktopLiveDataParserSkipsMalformedBars();
 await tests.WebhookSettingsPersistUnlimitedEndpointsAsync();
 tests.WebhookStatusChangeDoesNotOverwriteEndpoints();
 Console.WriteLine("desktop strategy tests passed");
@@ -410,6 +411,24 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
             Assert(!pageCode.Contains(forbidden, StringComparison.Ordinal), $"desktop page must not use 12-hour time token {forbidden}");
             Assert(!strategyCode.Contains(forbidden, StringComparison.Ordinal), $"desktop strategy text must not use 12-hour time token {forbidden}");
         }
+    }
+
+    public void DesktopLiveDataParserSkipsMalformedBars()
+    {
+        var candles = MarketDataService.ParseBiquotePayload("""
+{
+  "bars": [
+    { "openTime": "2026-05-29T10:00:00Z", "open": "100.5", "high": "101.2", "low": "100.1", "close": "100.9", "tickVolume": "12" },
+    { "openTime": "not a date", "open": "100", "high": "101", "low": "99", "close": "100", "tickVolume": "10" },
+    { "openTime": "2026-05-29T10:05:00Z", "open": "bad", "high": "101", "low": "99", "close": "100", "tickVolume": "10" },
+    { "openTime": "2026-05-29T10:10:00Z", "open": "100", "high": "99", "low": "101", "close": "100", "tickVolume": "10" }
+  ]
+}
+""");
+
+        Assert(candles.Count == 1, "desktop parser should skip malformed live bars instead of turning bad prices into zero");
+        Assert(candles[0].Open == 100.5, "desktop parser should preserve valid string numeric prices");
+        Assert(candles[0].Volume == 12, "desktop parser should preserve valid tick volume");
     }
 
     public async Task WebhookSettingsPersistUnlimitedEndpointsAsync()

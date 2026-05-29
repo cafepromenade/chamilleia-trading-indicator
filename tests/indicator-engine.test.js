@@ -461,6 +461,13 @@ function testWebsiteUsesLiveMultiTimeframeDataOnly() {
   assert(!/const\s+(sample|demo|mock|fake)Candles/i.test(statusCode), "website must not define static candle data");
 }
 
+function testWebsiteSkipsMalformedLiveBars() {
+  assert(statusCode.includes("Array.isArray(payload?.bars)"), "website parser should reject payloads without live bars");
+  assert(statusCode.includes("every(Number.isFinite)"), "website parser should reject malformed candle numbers");
+  assert(statusCode.includes("high < low"), "website parser should reject impossible candle ranges");
+  assert(statusCode.includes(".filter(Boolean)"), "website parser should skip malformed bars before strategy calculation");
+}
+
 function testWebsiteLinksLatestDesktopInstaller() {
   assert(htmlCode.includes('id="status-install-desktop"'), "sticky status bar should include a desktop install link");
   assert(htmlCode.includes("data-install-desktop"), "desktop install links should share the latest-release hook");
@@ -499,6 +506,7 @@ testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();
 testWebsiteUsesLiveMultiTimeframeDataOnly();
+testWebsiteSkipsMalformedLiveBars();
 testWebsiteLinksLatestDesktopInstaller();
 testWebsiteUsesTwentyFourHourTimeOnly();
 
