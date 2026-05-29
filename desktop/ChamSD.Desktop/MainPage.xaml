@@ -345,6 +345,28 @@
                                     HorizontalContentAlignment="Stretch">
                                     <TextBlock Text="Predict when status changes" TextWrapping="Wrap" />
                                 </CheckBox>
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox
+                                        x:Name="WindowsNotificationsCheckBox"
+                                        AutomationProperties.AutomationId="WindowsNotificationsCheckBox"
+                                        AutomationProperties.Name="Show Windows status notifications"
+                                        VerticalAlignment="Center"
+                                        HorizontalContentAlignment="Stretch"
+                                        IsChecked="True">
+                                        <TextBlock Text="Windows alerts on status change" TextWrapping="Wrap" />
+                                    </CheckBox>
+                                    <Button
+                                        x:Name="TestNotificationButton"
+                                        AutomationProperties.AutomationId="TestNotificationButton"
+                                        AutomationProperties.Name="Test Windows notification"
+                                        Grid.Column="1"
+                                        Click="TestNotificationButton_Click"
+                                        Content="Test" />
+                                </Grid>
                                 <TextBox
                                     x:Name="ThinkingTextBox"
                                     AutomationProperties.AutomationId="ThinkingTextBox"

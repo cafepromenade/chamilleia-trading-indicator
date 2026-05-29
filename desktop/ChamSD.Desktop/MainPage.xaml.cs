@@ -23,6 +23,7 @@ public sealed partial class MainPage : Page
     private readonly StrategyEngine _strategyEngine = new();
     private readonly WebhookService _webhookService = new();
     private readonly OpenCodeThinkingService _thinkingService = new();
+    private readonly WindowsNotificationService _notificationService = new();
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(60) };
     private readonly ObservableCollection<WebhookEndpoint> _webhooks = new();
     private readonly SolidColorBrush _chartTextBrush = Brush(0xFFD8DEE9);
@@ -97,6 +98,7 @@ public sealed partial class MainPage : Page
             if (!string.IsNullOrWhiteSpace(previousStatus) && previousStatus != decision.Label)
             {
                 await SendStatusChangeWebhooksAsync();
+                SendWindowsStatusNotification();
                 if (AutoThinkCheckBox.IsChecked == true)
                 {
                     await RunThinkingAsync();
@@ -409,6 +411,24 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private void SendWindowsStatusNotification()
+    {
+        if (WindowsNotificationsCheckBox.IsChecked != true || _currentDecision is null || _currentMarket is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _notificationService.ShowStatusNotification(_currentMarket, _currentDecision);
+            AppendLog("Windows notification sent for status change.");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Windows notification failed: {ex.Message}");
+        }
+    }
+
     private async Task SendEndpointAsync(WebhookEndpoint endpoint)
     {
         if (_currentDecision is null || _currentMarket is null)
@@ -585,6 +605,19 @@ Checklist:
     private async void ThinkButton_Click(object sender, RoutedEventArgs e)
     {
         await RunThinkingAsync();
+    }
+
+    private void TestNotificationButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _notificationService.ShowTestNotification();
+            AppendLog("Windows test notification sent.");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Windows test notification failed: {ex.Message}");
+        }
     }
 
     private void AddHeaderButton_Click(object sender, RoutedEventArgs e)
