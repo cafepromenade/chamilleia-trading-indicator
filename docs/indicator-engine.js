@@ -389,7 +389,39 @@
     return null;
   }
 
-  function calculateRiskPlan(latest, direction, structureTarget) {
+  function calculateRangeRiskPlan(latest, rangeLow, rangeHigh, nearSupport, nearResistance, rangeBuffer) {
+    if (!nearSupport && !nearResistance) {
+      return null;
+    }
+
+    const entry = latest.close;
+    const buffer = rangeBuffer || Math.abs(entry) * 0.0004 || 1;
+    const stop = nearSupport ? rangeLow - buffer : rangeHigh + buffer;
+    const risk = Math.abs(entry - stop);
+    if (!Number.isFinite(risk) || risk === 0) {
+      return null;
+    }
+
+    const targetOne = nearSupport ? entry + risk : entry - risk;
+    return {
+      entry: round(entry),
+      stop: round(stop),
+      risk: round(risk),
+      targetOne: round(targetOne),
+      targetTwo: null,
+      structureTarget: round(nearSupport ? rangeHigh : rangeLow),
+      entryMode: nearSupport ? "RANGE SUPPORT 1:1" : "RANGE RESISTANCE 1:1",
+      scaleOut: "100% at 1:1",
+      stopWithinLimit: risk <= 50,
+      text: `Range fallback only: ${nearSupport ? "support floor" : "resistance ceiling"} with strict 1:1. No runner and no trend target until market structure breaks out of the range.`,
+    };
+  }
+
+  function calculateRiskPlan(latest, direction, structureTarget, rangePlan = null) {
+    if (rangePlan) {
+      return rangePlan;
+    }
+
     const tapMatchesDirection = latest.lastTap && (
       (direction === "bullish" && latest.lastTap.isDemand) ||
       (direction === "bearish" && !latest.lastTap.isDemand)
@@ -701,7 +733,8 @@
     const structureTarget = findStructureTarget(d1Candles, latest.close, bias.direction)
       ?? findStructureTarget(h4Candles, latest.close, bias.direction)
       ?? findStructureTarget(h1Candles, latest.close, bias.direction);
-    const risk = calculateRiskPlan(latest, bias.direction, structureTarget);
+    const rangePlan = calculateRangeRiskPlan(latest, rangeLow, rangeHigh, nearSupport, nearResistance, rangeBuffer);
+    const risk = calculateRiskPlan(latest, bias.direction, structureTarget, rangePlan);
     return {
       label,
       note,

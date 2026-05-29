@@ -4,6 +4,7 @@ var tests = new DesktopStrategyTests();
 tests.PrimaryIndicationGateBlocksBuyBeforeReclaim();
 tests.FailedDemandWaitsForSecondHigherLowReset();
 tests.KeepsOnlyNewestZone();
+tests.RangeFallbackUsesStrictOneToOneRisk();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
@@ -75,6 +76,28 @@ internal sealed class DesktopStrategyTests
         Assert(decision.Execution.Zones.Count <= 1, "engine must keep only the newest valid zone");
         Assert(decision.Risk.ScaleOut == "75-90%", "risk plan must carry document scale-out guidance");
         Assert(decision.Risk.Text.Contains("75-90% partials", StringComparison.OrdinalIgnoreCase), "risk note must tell users to secure 75-90% partials at TP1");
+    }
+
+    public void RangeFallbackUsesStrictOneToOneRisk()
+    {
+        var ranging = RangingMarketAtSupport();
+        var decision = _engine.CalculateStrategyDecision(
+            ranging,
+            ranging,
+            ranging,
+            ranging,
+            ranging,
+            ranging);
+
+        Assert(decision.Phase == "SUPPORT / RESISTANCE", "range fallback should use support/resistance phase near a range edge");
+        Assert(decision.Label == "STATUS: WAIT RANGE BUY", "support edge should produce wait range buy status");
+        Assert(decision.Risk.EntryMode == "RANGE SUPPORT 1:1", "range fallback should identify the support 1:1 entry mode");
+        Assert(decision.Risk.ScaleOut == "100% at 1:1", "range fallback should not use trend-runner scaling");
+        Assert(decision.Risk.TargetTwo is null, "range fallback should not create a runner target");
+        Assert(
+            decision.Risk.Text.Contains("strict 1:1", StringComparison.OrdinalIgnoreCase) &&
+            decision.Risk.Text.Contains("No runner", StringComparison.OrdinalIgnoreCase),
+            "range fallback risk text must enforce strict 1:1 with no runner");
     }
 
     public void OpenCodeUsesOnlyFreeModelLadder()
@@ -244,6 +267,45 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
             Candle(24, 95, 96, 94, 95),
             Candle(25, 96, 103, 95, 102),
         });
+        return bars;
+    }
+
+    private static List<MarketCandle> RangingMarketAtSupport()
+    {
+        var bars = new List<MarketCandle>();
+        for (var index = 0; index < 45; index++)
+        {
+            var open = 104.8;
+            var high = 105.5;
+            var low = 104.5;
+            var close = 105.2;
+            if (index % 8 == 2)
+            {
+                open = 109.2;
+                high = 110.4;
+                low = 109;
+                close = 110;
+            }
+
+            if (index % 8 == 6)
+            {
+                open = 100.8;
+                high = 101;
+                low = 99.6;
+                close = 100;
+            }
+
+            if (index == 44)
+            {
+                open = 101.1;
+                high = 101.3;
+                low = 100.7;
+                close = 101;
+            }
+
+            bars.Add(Candle(index, open, high, low, close));
+        }
+
         return bars;
     }
 

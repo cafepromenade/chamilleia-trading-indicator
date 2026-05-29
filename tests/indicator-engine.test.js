@@ -68,6 +68,36 @@ function baseExecution() {
   return bars;
 }
 
+function rangingMarketAtSupport() {
+  const bars = [];
+  for (let index = 0; index < 45; index += 1) {
+    let open = 104.8;
+    let high = 105.5;
+    let low = 104.5;
+    let close = 105.2;
+    if (index % 8 === 2) {
+      open = 109.2;
+      high = 110.4;
+      low = 109;
+      close = 110;
+    }
+    if (index % 8 === 6) {
+      open = 100.8;
+      high = 101;
+      low = 99.6;
+      close = 100;
+    }
+    if (index === 44) {
+      open = 101.1;
+      high = 101.3;
+      low = 100.7;
+      close = 101;
+    }
+    bars.push(candle(index, open, high, low, close));
+  }
+  return bars;
+}
+
 function testPrimaryIndicationGate() {
   const execution = baseExecution();
   execution.push(
@@ -120,6 +150,28 @@ function testNewestZoneOnly() {
   assert(decision.execution.zones.length <= 1, "engine must keep only the newest valid zone");
   assert.strictEqual(decision.risk.scaleOut, "75-90%", "risk plan must carry document scale-out guidance");
   assert(decision.risk.text.includes("75-90% partials"), "risk note must tell users to secure 75-90% partials at TP1");
+}
+
+function testRangeFallbackUsesStrictOneToOneRisk() {
+  const ranging = rangingMarketAtSupport();
+  const decision = engine.calculateStrategyDecision({
+    executionCandles: ranging,
+    m15Candles: ranging,
+    m30Candles: ranging,
+    h1Candles: ranging,
+    h4Candles: ranging,
+    d1Candles: ranging,
+  });
+
+  assert.strictEqual(decision.phase, "SUPPORT / RESISTANCE", "range fallback should use support/resistance phase near a range edge");
+  assert.strictEqual(decision.label, "STATUS: WAIT RANGE BUY", "support edge should produce wait range buy status");
+  assert.strictEqual(decision.risk.entryMode, "RANGE SUPPORT 1:1", "range fallback should identify the support 1:1 entry mode");
+  assert.strictEqual(decision.risk.scaleOut, "100% at 1:1", "range fallback should not use trend-runner scaling");
+  assert.strictEqual(decision.risk.targetTwo, null, "range fallback should not create a runner target");
+  assert(
+    decision.risk.text.includes("strict 1:1") && decision.risk.text.includes("No runner"),
+    "range fallback risk text must enforce strict 1:1 with no runner",
+  );
 }
 
 function testPineIndicatorIsPriceActionOnly() {
@@ -181,6 +233,7 @@ function testWebsiteUsesTwentyFourHourTimeOnly() {
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
+testRangeFallbackUsesStrictOneToOneRisk();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();

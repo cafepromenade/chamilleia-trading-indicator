@@ -159,7 +159,8 @@ public sealed class StrategyEngine
         var structureTarget = FindStructureTarget(d1Candles, latest.Close, bias.Direction)
             ?? FindStructureTarget(h4Candles, latest.Close, bias.Direction)
             ?? FindStructureTarget(h1Candles, latest.Close, bias.Direction);
-        var riskPlan = CalculateRiskPlan(latest, bias.Direction, structureTarget);
+        var rangePlan = CalculateRangeRiskPlan(latest, rangeLow, rangeHigh, nearSupport, nearResistance, rangeBuffer);
+        var riskPlan = CalculateRiskPlan(latest, bias.Direction, structureTarget, rangePlan);
 
         return new StrategyDecision
         {
@@ -500,8 +501,55 @@ public sealed class StrategyEngine
         };
     }
 
-    private static RiskPlan CalculateRiskPlan(ChamilleiaLatest latest, string direction, double? structureTarget)
+    private static RiskPlan? CalculateRangeRiskPlan(
+        ChamilleiaLatest latest,
+        double? rangeLow,
+        double? rangeHigh,
+        bool nearSupport,
+        bool nearResistance,
+        double? rangeBuffer)
     {
+        if (!nearSupport && !nearResistance || rangeLow is null || rangeHigh is null)
+        {
+            return null;
+        }
+
+        var entry = latest.Close;
+        var buffer = rangeBuffer ?? Math.Abs(entry) * 0.0004;
+        if (buffer == 0)
+        {
+            buffer = 1;
+        }
+
+        var stop = nearSupport ? rangeLow.Value - buffer : rangeHigh.Value + buffer;
+        var risk = Math.Abs(entry - stop);
+        if (!double.IsFinite(risk) || risk == 0)
+        {
+            return null;
+        }
+
+        return new RiskPlan
+        {
+            Entry = Round(entry),
+            Stop = Round(stop),
+            Risk = Round(risk),
+            TargetOne = Round(nearSupport ? entry + risk : entry - risk),
+            TargetTwo = null,
+            StructureTarget = Round(nearSupport ? rangeHigh : rangeLow),
+            EntryMode = nearSupport ? "RANGE SUPPORT 1:1" : "RANGE RESISTANCE 1:1",
+            ScaleOut = "100% at 1:1",
+            StopWithinLimit = risk <= 50,
+            Text = $"Range fallback only: {(nearSupport ? "support floor" : "resistance ceiling")} with strict 1:1. No runner and no trend target until market structure breaks out of the range.",
+        };
+    }
+
+    private static RiskPlan CalculateRiskPlan(ChamilleiaLatest latest, string direction, double? structureTarget, RiskPlan? rangePlan = null)
+    {
+        if (rangePlan is not null)
+        {
+            return rangePlan;
+        }
+
         var tapMatchesDirection = latest.LastTap is not null && (
             direction == "bullish" && latest.LastTap.IsDemand ||
             direction == "bearish" && !latest.LastTap.IsDemand);
