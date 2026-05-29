@@ -9,6 +9,7 @@ tests.PredictionParserKeepsGuiCardsFilled();
 tests.DesktopStatusAnimationIsDramaticAndColorCoded();
 tests.DesktopWindowIsFixedSize();
 tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
+tests.DesktopUsesLiveMultiTimeframeDataOnly();
 Console.WriteLine("desktop strategy tests passed");
 
 internal sealed class DesktopStrategyTests
@@ -139,6 +140,26 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         foreach (var forbidden in new[] { ".example", "sample", "demo", "mock", "fake", "advert", "sponsor" })
         {
             Assert(!pageXaml.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"desktop UI should not show {forbidden} wording");
+        }
+    }
+
+    public void DesktopUsesLiveMultiTimeframeDataOnly()
+    {
+        var dataService = ReadRepoFile("desktop/ChamSD.Desktop/MarketDataService.cs");
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+
+        Assert(dataService.Contains("https://biquote.io/api/", StringComparison.Ordinal), "desktop app must fetch live candles from BiQuote");
+        Assert(dataService.Contains("DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()", StringComparison.Ordinal), "desktop live data requests must be cache-busted");
+        Assert(dataService.Contains("The live data server returned no candles.", StringComparison.Ordinal), "desktop app should fail closed when live data is unavailable");
+        foreach (var interval in new[] { "5m", "15m", "30m", "1h", "4h", "1d" })
+        {
+            Assert(pageCode.Contains($"GetCandlesAsync(market.Symbol, \"{interval}\"", StringComparison.Ordinal), $"desktop app must fetch {interval} live candles");
+        }
+
+        foreach (var forbidden in new[] { "sampleCandles", "demoCandles", "mockCandles", "fakeCandles" })
+        {
+            Assert(!pageCode.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"desktop app must not use {forbidden}");
+            Assert(!dataService.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"desktop data service must not use {forbidden}");
         }
     }
 

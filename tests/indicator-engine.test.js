@@ -145,11 +145,23 @@ function testWebsiteHasNoExampleOrAdClutter() {
   }
 }
 
+function testWebsiteUsesLiveMultiTimeframeDataOnly() {
+  assert(statusCode.includes("https://biquote.io/api/"), "website must fetch live market candles from BiQuote");
+  assert(statusCode.includes("cache: \"no-store\""), "website live data requests must avoid cached candle payloads");
+  assert(statusCode.includes("withCacheBust(url)"), "website must cache-bust live candle requests");
+  for (const interval of ["5m", "15m", "30m", "1h", "4h", "1d"]) {
+    assert(statusCode.includes(`biquoteUrl(market.symbol, "${interval}")`), `website must fetch ${interval} live candles`);
+  }
+  assert(statusCode.includes("Promise.all"), "website should load all required live timeframes together");
+  assert(!/const\s+(sample|demo|mock|fake)Candles/i.test(statusCode), "website must not define static candle data");
+}
+
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();
+testWebsiteUsesLiveMultiTimeframeDataOnly();
 
 console.log("indicator-engine tests passed");
