@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chamilleia Supply &amp; Demand — Trading Plan & Indicator</title>
+  <meta name="description" content="High-probability supply & demand trade-setup indicator for TradingView, built from Chamilleia's trading plan." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <nav>
+      <span class="brand">CHAM · S&amp;D</span>
+      <ul>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#rules">The rules</a></li>
+        <li><a href="#install">Install</a></li>
+      </ul>
+    </nav>
+    <div class="hero-inner">
+      <p class="eyebrow">Trading Plan · Journal · Indicator</p>
+      <h1>Chamilleia Supply &amp; Demand</h1>
+      <p class="lede">
+        A TradingView indicator that highlights <strong>high-probability supply
+        &amp; demand setups</strong> — zones born from a Break of Structure,
+        confirmed by a tap, an A+ wick, and a second lower-high / higher-low
+        reversal.
+      </p>
+      <div class="cta">
+        <a class="btn primary" href="#install">Get the indicator</a>
+        <a class="btn ghost" href="#rules">Read the plan</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="how" class="features">
+      <h2>What it marks on your chart</h2>
+      <div class="grid">
+        <article class="card"><span class="ico">📈</span><h3>Trend filter</h3><p>EMA slope keeps you strictly on buys or strictly on sells — your daily bias, enforced.</p></article>
+        <article class="card"><span class="ico">🧱</span><h3>Break of Structure</h3><p>Detects breaks of the most recent swing high/low — valid by body <em>or</em> wick.</p></article>
+        <article class="card"><span class="ico">🟦</span><h3>Auto zones</h3><p>Draws the most recent opposite candle before the push, wick-to-wick, newest only (recency rule).</p></article>
+        <article class="card"><span class="ico">🎯</span><h3>Tap &amp; entry</h3><p><code>BUY</code>/<code>SELL</code> markers on the break-of-candle entry after a clean tap.</p></article>
+        <article class="card"><span class="ico">⭐</span><h3>A+ setups</h3><p>Stars the cleanest plays: price only wicks the zone, no body closes inside.</p></article>
+        <article class="card"><span class="ico">🪜</span><h3>Minor BOS reversal</h3><p>Confirms the stair-step flip with a second lower high (sells) / higher low (buys).</p></article>
+      </div>
+    </section>
+
+    <section id="rules" class="rules">
+      <h2>The 4-step core process</h2>
+      <ol class="steps">
+        <li><span>1</span><div><h3>Find the trend</h3><p>Clear bullish or bearish direction on the 5-minute. No trend → use S/R instead.</p></div></li>
+        <li><span>2</span><div><h3>Wait for a Break of Structure</h3><p>Price breaks a previous major swing high (buys) or low (sells). Body or wick both count.</p></div></li>
+        <li><span>3</span><div><h3>Wait for the tap</h3><p>The zone is a train stop. Price must fully pull back and tap it. No tap, no trade.</p></div></li>
+        <li><span>4</span><div><h3>Take the entry</h3><p>Aggressive, conservative (close out of zone), or break-of-candle. Stop outside the zone, target 1:1 then runner.</p></div></li>
+      </ol>
+      <p class="more">The full ruleset — invalidations, A+ criteria, minor BOS, support/resistance and counter trend-line breaks — lives in
+        <a href="https://github.com/cafepromenade/chamilleia-trading-indicator/blob/main/STRATEGY.md">STRATEGY.md</a>.</p>
+    </section>
+
+    <section id="install" class="install">
+      <h2>Install on TradingView</h2>
+      <ol class="install-steps">
+        <li>Open TradingView → <strong>Pine Editor</strong>.</li>
+        <li>Copy the contents of <code>indicator/ChamilleiaSupplyDemand.pine</code>.</li>
+        <li>Paste → <strong>Save</strong> → <strong>Add to chart</strong>.</li>
+        <li>Set the chart to the <strong>5-minute</strong> timeframe.</li>
+        <li>Tune settings &amp; create alerts as needed.</li>
+      </ol>
+      <a class="btn primary" href="https://github.com/cafepromenade/chamilleia-trading-indicator">View on GitHub →</a>
+    </section>
+  </main>
+
+  <footer>
+    <p>⚠️ Educational tool — not financial advice. Signals are mechanical approximations of a discretionary plan.</p>
+    <p class="muted">Chamilleia Supply &amp; Demand · Trading Plan by 1</p>
+  </footer>
+</body>
+</html>

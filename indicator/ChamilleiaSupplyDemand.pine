@@ -1,0 +1,194 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0
+// © chamilleia-trading-indicator
+//
+// Chamilleia Supply & Demand — High-Probability Setup Highlighter
+// -----------------------------------------------------------------
+// Implements the core 4-step Supply & Demand rules:
+//   1. Trend detection (bullish / bearish)
+//   2. Break of Structure (BOS) confirmation (body OR wick valid)
+//   3. Most-recent demand/supply zone (recency rule, drawn wick-to-wick)
+//   4. Zone tap alerts + entry guidance
+//
+// Extras:
+//   - Minor Break of Structure (mBOS) "stair-step" reversal confirmation,
+//     confirmed by a second lower high (sells) / second higher low (buys).
+//   - Zone invalidation when a candle BODY closes through the zone.
+//   - A+ flag when price only wicks into the zone (no body close inside).
+//
+// Designed for the 5-minute execution timeframe described in the plan.
+
+//@version=5
+indicator("Chamilleia Supply & Demand", shorttitle="CHAM S&D", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500)
+
+// ─────────────────────────── Inputs ───────────────────────────
+grpStruct   = "Structure"
+pivotLen    = input.int(5,  "Pivot lookback (structure swing strength)", minval=1, group=grpStruct)
+trendLen    = input.int(50, "Trend EMA length", minval=2, group=grpStruct)
+useEmaTrend = input.bool(true, "Use EMA slope to confirm trend", group=grpStruct)
+
+grpZone     = "Zones"
+impulseMult = input.float(1.5, "Impulse strength (x avg range) to validate a push", minval=0.5, step=0.1, group=grpZone)
+maxZones    = input.int(6,  "Max zones to keep on chart", minval=1, maxval=20, group=grpZone)
+extendBars  = input.int(60, "Zone extension (bars to the right)", minval=5, group=grpZone)
+
+grpRisk     = "Risk"
+maxSlPoints = input.float(50, "Max stop-loss size (points) before tightening", minval=0, group=grpRisk)
+
+grpStyle    = "Style"
+demandCol   = input.color(color.new(color.teal, 80), "Demand zone fill", group=grpStyle)
+supplyCol   = input.color(color.new(color.red, 80),  "Supply zone fill", group=grpStyle)
+borderDem   = input.color(color.teal, "Demand border", group=grpStyle)
+borderSup   = input.color(color.red,  "Supply border", group=grpStyle)
+showLabels  = input.bool(true, "Show BOS / tap labels", group=grpStyle)
+
+// ─────────────────────────── Trend ───────────────────────────
+ema      = ta.ema(close, trendLen)
+emaUp    = ema > ema[1]
+emaDown  = ema < ema[1]
+bull     = useEmaTrend ? emaUp   : close > ema
+bear     = useEmaTrend ? emaDown : close < ema
+
+// ─────────────────────── Swing structure ───────────────────────
+ph = ta.pivothigh(high, pivotLen, pivotLen)
+pl = ta.pivotlow(low,  pivotLen, pivotLen)
+
+var float lastSwingHigh = na
+var float lastSwingLow  = na
+if not na(ph)
+    lastSwingHigh := ph
+if not na(pl)
+    lastSwingLow := pl
+
+// Break of Structure: close/high beyond the most recent swing high (buys),
+// or close/low beyond the most recent swing low (sells). Wick OR body valid.
+bosUp   = not na(lastSwingHigh) and high > lastSwingHigh and high[1] <= lastSwingHigh
+bosDown = not na(lastSwingLow)  and low  < lastSwingLow  and low[1]  >= lastSwingLow
+
+// ─────────────────────── Impulse / push ───────────────────────
+rng     = high - low
+avgRng  = ta.sma(rng, 20)
+strongUp   = close > open and rng > avgRng * impulseMult
+strongDown = close < open and rng > avgRng * impulseMult
+
+// ─────────────────────── Zone storage ───────────────────────
+// A zone = the most recent opposite-color candle before an aggressive push,
+// drawn from the top of the wick to the bottom of the wick.
+type Zone
+    box  bx
+    float top
+    float bot
+    bool  isDemand
+    bool  invalidated
+    bool  tapped
+
+var array<Zone> zones = array.new<Zone>()
+
+// Find the most recent opposite candle before this impulse bar.
+// For a demand zone: most recent red (close<open) candle in the lookback window.
+// For a supply zone: most recent green (close>open) candle.
+f_lastOpposite(bool wantRed) =>
+    float t = na
+    float b = na
+    int found = -1
+    for i = 1 to 10
+        bool red   = close[i] < open[i]
+        bool green = close[i] > open[i]
+        if (wantRed and red) or (not wantRed and green)
+            found := i
+            break
+    if found >= 0
+        t := high[found]
+        b := low[found]
+    [t, b]
+
+f_addZone(bool isDemand) =>
+    [t, b] = f_lastOpposite(isDemand)  // demand wants a red base candle; supply wants green
+    if not na(t)
+        box bx = box.new(bar_index, t, bar_index + extendBars, b, border_color=isDemand ? borderDem : borderSup, bgcolor=isDemand ? demandCol : supplyCol, border_width=1)
+        Zone z = Zone.new(bx, t, b, isDemand, false, false)
+        array.unshift(zones, z)
+        // Recency rule: keep only the newest N zones.
+        while array.size(zones) > maxZones
+            Zone old = array.pop(zones)
+            box.delete(old.bx)
+
+// Create a fresh zone only when BOS confirms trend continuation + impulse present.
+if bosUp and bull and strongUp
+    f_addZone(true)
+    if showLabels
+        label.new(bar_index, high, "BOS ▲", style=label.style_label_down, color=color.new(borderDem, 0), textcolor=color.white, size=size.tiny)
+
+if bosDown and bear and strongDown
+    f_addZone(false)
+    if showLabels
+        label.new(bar_index, low, "BOS ▼", style=label.style_label_up, color=color.new(borderSup, 0), textcolor=color.white, size=size.tiny)
+
+// ─────────────── Zone maintenance: extend, tap, invalidate ───────────────
+var float lastTapTop = na
+var float lastTapBot = na
+var bool  lastTapDem = na
+
+if array.size(zones) > 0
+    for i = 0 to array.size(zones) - 1
+        Zone z = array.get(zones, i)
+        if not z.invalidated
+            box.set_right(z.bx, bar_index + extendBars)
+            // Tap: price trades into the zone.
+            bool tappedNow = low <= z.top and high >= z.bot
+            if tappedNow and not z.tapped
+                z.tapped := true
+                lastTapTop := z.top
+                lastTapBot := z.bot
+                lastTapDem := z.isDemand
+                if showLabels
+                    label.new(bar_index, z.isDemand ? z.bot : z.top, z.isDemand ? "TAP ▲" : "TAP ▼", style=z.isDemand ? label.style_label_up : label.style_label_down, color=color.new(color.gray, 20), textcolor=color.white, size=size.tiny)
+            // Invalidation: a candle BODY closes through the zone.
+            bool bodyThrough = z.isDemand ? close < z.bot : close > z.top
+            if bodyThrough
+                z.invalidated := true
+                box.set_bgcolor(z.bx, color.new(color.gray, 90))
+                box.set_border_style(z.bx, line.style_dashed)
+
+// ─────────────── Entry trigger (Break-of-Candle entry) ───────────────
+// After a candle taps a valid demand zone and closes, a buy triggers when the
+// next candle breaks the high of that tap candle (mirror for sells).
+demandTapClose = not na(lastTapDem) and lastTapDem and low[1] <= lastTapTop and low[1] >= lastTapBot
+supplyTapClose = not na(lastTapDem) and not lastTapDem and high[1] <= lastTapTop and high[1] >= lastTapBot
+
+buyTrigger  = demandTapClose and high > high[1] and bull
+sellTrigger = supplyTapClose and low  < low[1]  and bear
+
+plotshape(buyTrigger,  title="Buy entry",  style=shape.triangleup,   location=location.belowbar, color=color.teal, size=size.small, text="BUY")
+plotshape(sellTrigger, title="Sell entry", style=shape.triangledown, location=location.abovebar, color=color.red,  size=size.small, text="SELL")
+
+// ─────────────── A+ flag: wick-only into zone, no body close inside ───────────────
+aPlusBuy  = buyTrigger  and open >= lastTapTop  // body opened above demand top
+aPlusSell = sellTrigger and open <= lastTapBot  // body opened below supply bottom
+plotchar(aPlusBuy or aPlusSell, title="A+ setup", char="★", location=location.top, color=color.yellow, size=size.tiny)
+
+// ─────────────── Minor BOS (stair-step) reversal confirmation ───────────────
+// Confirmed by a second lower high (for sells) / second higher low (for buys).
+var float lh1 = na
+var float lh2 = na
+var float hl1 = na
+var float hl2 = na
+if not na(ph)
+    lh2 := lh1
+    lh1 := ph
+if not na(pl)
+    hl2 := hl1
+    hl1 := pl
+
+secondLowerHigh  = not na(lh1) and not na(lh2) and lh1 < lh2   // bearish mBOS confirmation
+secondHigherLow  = not na(hl1) and not na(hl2) and hl1 > hl2   // bullish mBOS confirmation
+
+plotshape(secondLowerHigh,  title="2nd Lower High (mBOS sell confirm)",  style=shape.xcross, location=location.abovebar, color=color.maroon, size=size.tiny)
+plotshape(secondHigherLow,  title="2nd Higher Low (mBOS buy confirm)",   style=shape.cross,  location=location.belowbar, color=color.green,  size=size.tiny)
+
+// ─────────────────────────── Alerts ───────────────────────────
+alertcondition(buyTrigger,        title="Buy Entry Triggered",  message="CHAM S&D: BUY entry on {{ticker}} {{interval}}")
+alertcondition(sellTrigger,       title="Sell Entry Triggered", message="CHAM S&D: SELL entry on {{ticker}} {{interval}}")
+alertcondition(bosUp,             title="Bullish BOS",          message="CHAM S&D: Bullish Break of Structure on {{ticker}}")
+alertcondition(bosDown,           title="Bearish BOS",          message="CHAM S&D: Bearish Break of Structure on {{ticker}}")
+alertcondition(secondLowerHigh,   title="2nd Lower High",       message="CHAM S&D: Second lower high — bearish mBOS confirmation")
+alertcondition(secondHigherLow,   title="2nd Higher Low",       message="CHAM S&D: Second higher low — bullish mBOS confirmation")
