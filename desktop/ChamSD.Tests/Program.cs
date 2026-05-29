@@ -4,6 +4,8 @@ var tests = new DesktopStrategyTests();
 tests.PrimaryIndicationGateBlocksBuyBeforeReclaim();
 tests.FailedDemandWaitsForSecondHigherLowReset();
 tests.KeepsOnlyNewestZone();
+tests.OpenCodeUsesOnlyFreeModelLadder();
+tests.PredictionParserKeepsGuiCardsFilled();
 Console.WriteLine("desktop strategy tests passed");
 
 internal sealed class DesktopStrategyTests
@@ -66,6 +68,38 @@ internal sealed class DesktopStrategyTests
         Assert(decision.Execution.Zones.Count <= 1, "engine must keep only the newest valid zone");
         Assert(decision.Risk.ScaleOut == "75-90%", "risk plan must carry document scale-out guidance");
         Assert(decision.Risk.Text.Contains("75-90% partials", StringComparison.OrdinalIgnoreCase), "risk note must tell users to secure 75-90% partials at TP1");
+    }
+
+    public void OpenCodeUsesOnlyFreeModelLadder()
+    {
+        Assert(OpenCodeThinkingService.DisplayModelLabel == "free model auto", "prediction UI must show the free-model auto ladder");
+        Assert(OpenCodeThinkingService.FreePredictionModels.Count >= 3, "OpenCode should have a fallback ladder, not one brittle model");
+        foreach (var model in OpenCodeThinkingService.FreePredictionModels)
+        {
+            Assert(model.StartsWith("opencode/", StringComparison.OrdinalIgnoreCase), $"model {model} should use OpenCode provider routing");
+            Assert(model.EndsWith("-free", StringComparison.OrdinalIgnoreCase), $"model {model} must be a free model");
+        }
+    }
+
+    public void PredictionParserKeepsGuiCardsFilled()
+    {
+        var sections = PredictionParser.Parse("""
+MODEL: deepseek-v4-flash-free
+THINKING: Price is in correction and waiting for a zone tap.
+PREDICTION: Wait for buy, not an instant buy.
+INVALIDATION: Body-close below the demand zone cancels it.
+FINAL BOT READ: STATUS: WAIT FOR BUY
+""", "STATUS: WAIT");
+
+        Assert(sections.Thinking.Contains("correction", StringComparison.OrdinalIgnoreCase), "thinking card should receive thinking text");
+        Assert(sections.Prediction.Contains("Wait for buy", StringComparison.OrdinalIgnoreCase), "next-move card should receive prediction text");
+        Assert(sections.Invalidation.Contains("Body-close", StringComparison.OrdinalIgnoreCase), "invalidation card should receive invalidation text");
+        Assert(sections.FinalRead == "STATUS: WAIT FOR BUY", "final bot read should preserve the model status");
+
+        var fallback = PredictionParser.Parse("The model returned one useful paragraph without headings.", "STATUS: WAIT");
+        Assert(!string.IsNullOrWhiteSpace(fallback.Thinking), "unstructured model output should still fill the thinking card");
+        Assert(fallback.Prediction.Contains("one block of text", StringComparison.OrdinalIgnoreCase), "unstructured output should explain the fallback in the prediction card");
+        Assert(fallback.FinalRead == "STATUS: WAIT", "missing final read should keep the engine status");
     }
 
     private StrategyDecision DecisionForExecution(IReadOnlyList<MarketCandle> executionCandles)

@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <Compile Include="..\ChamSD.Desktop\Models.cs" Link="Models.cs" />
+    <Compile Include="..\ChamSD.Desktop\OpenCodeThinkingService.cs" Link="OpenCodeThinkingService.cs" />
+    <Compile Include="..\ChamSD.Desktop\PredictionParser.cs" Link="PredictionParser.cs" />
     <Compile Include="..\ChamSD.Desktop\StrategyEngine.cs" Link="StrategyEngine.cs" />
   </ItemGroup>
 </Project>

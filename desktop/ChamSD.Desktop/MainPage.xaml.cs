@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -220,7 +218,7 @@ public sealed partial class MainPage : Page
         AnimatePredictionChange();
     }
 
-    private void SetPredictionSections(PredictionSections sections, string className)
+    private void SetPredictionSections(ChamSD_Desktop.PredictionSections sections, string className)
     {
         SetPredictionMessage(
             $"AI: updated {DateTimeOffset.Now:HH:mm:ss}",
@@ -557,7 +555,7 @@ public sealed partial class MainPage : Page
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
             var output = await _thinkingService.ThinkAsync(BuildThinkingPrompt(_currentMarket, _currentDecision), timeout.Token);
-            SetPredictionSections(ParsePredictionSections(output, _currentDecision.Label), _currentDecision.ClassName);
+            SetPredictionSections(PredictionParser.Parse(output, _currentDecision.Label), _currentDecision.ClassName);
         }
         catch (OperationCanceledException)
         {
@@ -572,90 +570,6 @@ public sealed partial class MainPage : Page
             ThinkButton.IsEnabled = true;
             _isThinking = false;
         }
-    }
-
-    private static PredictionSections ParsePredictionSections(string output, string fallbackFinalRead)
-    {
-        var sections = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["THINKING"] = new(),
-            ["PREDICTION"] = new(),
-            ["INVALIDATION"] = new(),
-            ["FINAL BOT READ"] = new(),
-        };
-        var normalized = output.Replace("\r", string.Empty).Replace("**", string.Empty);
-        var matches = Regex.Matches(normalized, "(THINKING|PREDICTION|INVALIDATION|FINAL\\s+BOT\\s+READ)\\s*:", RegexOptions.IgnoreCase);
-        for (var index = 0; index < matches.Count; index++)
-        {
-            var match = matches[index];
-            var key = Regex.Replace(match.Groups[1].Value, "\\s+", " ").ToUpperInvariant();
-            var start = match.Index + match.Length;
-            var end = index + 1 < matches.Count ? matches[index + 1].Index : normalized.Length;
-            var value = normalized[start..end].Trim();
-            if (!string.IsNullOrWhiteSpace(value) && sections.TryGetValue(key, out var section))
-            {
-                section.AppendLine(value.TrimStart('-', '*', ' '));
-            }
-        }
-
-        string? currentSection = null;
-
-        foreach (var rawLine in matches.Count == 0 ? normalized.Split('\n') : Array.Empty<string>())
-        {
-            var line = rawLine.Trim();
-            var heading = line.TrimEnd(':');
-            if (sections.ContainsKey(heading))
-            {
-                currentSection = heading;
-                continue;
-            }
-
-            var inlineHeading = sections.Keys.FirstOrDefault(key => line.StartsWith($"{key}:", StringComparison.OrdinalIgnoreCase));
-            if (inlineHeading is not null)
-            {
-                currentSection = inlineHeading;
-                var inlineText = line[(inlineHeading.Length + 1)..].Trim();
-                if (!string.IsNullOrWhiteSpace(inlineText))
-                {
-                    sections[currentSection].AppendLine(inlineText.TrimStart('-', '*', ' '));
-                }
-
-                continue;
-            }
-
-            if (currentSection is not null && !string.IsNullOrWhiteSpace(line))
-            {
-                sections[currentSection].AppendLine(line.TrimStart('-', '*', ' '));
-            }
-        }
-
-        var thinking = CleanPredictionSection(sections["THINKING"].ToString());
-        var prediction = CleanPredictionSection(sections["PREDICTION"].ToString());
-        var invalidation = CleanPredictionSection(sections["INVALIDATION"].ToString());
-        var finalRead = CleanPredictionSection(sections["FINAL BOT READ"].ToString());
-
-        if (string.IsNullOrWhiteSpace(thinking) && string.IsNullOrWhiteSpace(prediction) && string.IsNullOrWhiteSpace(invalidation))
-        {
-            thinking = CleanPredictionSection(output);
-            prediction = "OpenCode returned one block of text, so the app kept it in Thinking.";
-            invalidation = "No separate invalidation section was returned.";
-        }
-
-        return new PredictionSections(
-            string.IsNullOrWhiteSpace(thinking) ? "OpenCode did not return a thinking section." : thinking,
-            string.IsNullOrWhiteSpace(prediction) ? "OpenCode did not return a prediction section." : prediction,
-            string.IsNullOrWhiteSpace(invalidation) ? "OpenCode did not return an invalidation section." : invalidation,
-            string.IsNullOrWhiteSpace(finalRead) ? fallbackFinalRead : finalRead);
-    }
-
-    private static string CleanPredictionSection(string text)
-    {
-        var cleaned = string.Join(
-            " ",
-            text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                .Select(line => line.Trim())
-                .Where(line => !line.StartsWith(">", StringComparison.Ordinal) && !line.Contains("build ·", StringComparison.OrdinalIgnoreCase)));
-        return cleaned.Length > 220 ? cleaned[..220] + "..." : cleaned;
     }
 
     private static string BuildThinkingPrompt(MarketConfig market, StrategyDecision decision)
@@ -834,5 +748,4 @@ Checklist:
             (byte)(argb & 0x000000FF)));
     }
 
-    private sealed record PredictionSections(string Thinking, string Prediction, string Invalidation, string FinalRead);
 }

@@ -7,7 +7,7 @@ public sealed class OpenCodeThinkingService
 {
     public const string DisplayModelLabel = "free model auto";
 
-    private static readonly IReadOnlyList<string> FreePredictionModels =
+    public static readonly IReadOnlyList<string> FreePredictionModels =
     [
         "opencode/deepseek-v4-flash-free",
         "opencode/mimo-v2.5-free",
