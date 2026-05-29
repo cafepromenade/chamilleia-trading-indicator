@@ -44,6 +44,10 @@ jobs:
         shell: pwsh
         run: npm ci
 
+      - name: Install Playwright browser
+        shell: pwsh
+        run: npx playwright install chromium
+
       - name: Test website strategy engine
         shell: pwsh
         run: npm test
