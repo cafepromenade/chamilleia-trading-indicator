@@ -68,6 +68,23 @@ function baseExecution() {
   return bars;
 }
 
+function executionWithZoneTap(tapIsWickOnly) {
+  const bars = filler(22, 96);
+  bars.push(
+    candle(22, 96, 97, 95, 96),
+    candle(23, 97, 101, 96, 100),
+    candle(24, 96, 97, 94, 95),
+    candle(25, 98, 99, 97, 98),
+    candle(26, 95, 96, 94, 95),
+    candle(27, 96, 103, 95, 102),
+    tapIsWickOnly
+      ? candle(28, 102, 103, 94.5, 102.5)
+      : candle(28, 96.2, 103, 94.5, 96.5),
+    candle(29, 103.1, 107, 103, 106),
+  );
+  return bars;
+}
+
 function rangingMarketAtSupport() {
   const bars = [];
   for (let index = 0; index < 45; index += 1) {
@@ -182,6 +199,32 @@ function testRangeFallbackUsesStrictOneToOneRisk() {
   );
 }
 
+function testAPlusRequiresWickOnlyZoneTap() {
+  const bullish = htfBullish();
+  const wickOnlyDecision = engine.calculateStrategyDecision({
+    executionCandles: executionWithZoneTap(true),
+    m15Candles: bullish,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles: bullish,
+  });
+  const bodyInZoneDecision = engine.calculateStrategyDecision({
+    executionCandles: executionWithZoneTap(false),
+    m15Candles: bullish,
+    m30Candles: bullish,
+    h1Candles: bullish,
+    h4Candles: bullish,
+    d1Candles: bullish,
+  });
+
+  assert.strictEqual(wickOnlyDecision.execution.latest.aPlusBuy, true, "wick-only tap with no body in zone should allow A+ buy");
+  assert.strictEqual(wickOnlyDecision.execution.latest.lastTap.wickOnlyNoBodyInZone, true, "tap should record wick-only/no-body A+ eligibility");
+  assert.strictEqual(bodyInZoneDecision.execution.latest.buyTrigger, true, "body-in-zone fixture should still be a normal buy trigger");
+  assert.strictEqual(bodyInZoneDecision.execution.latest.aPlusBuy, false, "body entering the zone must block A+ buy");
+  assert.strictEqual(bodyInZoneDecision.execution.latest.lastTap.wickOnlyNoBodyInZone, false, "body-in-zone tap should record that it is not A+ clean");
+}
+
 function testPineIndicatorIsPriceActionOnly() {
   assert(!/ta\.ema|useEmaTrend|Trend EMA/i.test(pineCode), "Pine indicator must not use EMA trend filtering");
   assert(/array\.size\(zones\) > 1/.test(pineCode), "Pine indicator should keep only the newest zone");
@@ -242,6 +285,7 @@ testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
 testRangeFallbackUsesStrictOneToOneRisk();
+testAPlusRequiresWickOnlyZoneTap();
 testPineIndicatorIsPriceActionOnly();
 testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();

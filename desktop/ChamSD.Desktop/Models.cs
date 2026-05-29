@@ -17,7 +17,7 @@ public sealed record MarketCandle(
 
 public sealed record Zone(double Top, double Bot, bool IsDemand, bool Invalidated, bool Tapped, int CreatedAt);
 
-public sealed record Tap(double Top, double Bot, bool IsDemand, int Bar);
+public sealed record Tap(double Top, double Bot, bool IsDemand, int Bar, bool WickOnlyNoBodyInZone);
 
 public sealed class ChamilleiaLatest
 {

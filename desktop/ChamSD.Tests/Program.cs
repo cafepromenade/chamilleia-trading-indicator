@@ -5,6 +5,7 @@ tests.PrimaryIndicationGateBlocksBuyBeforeReclaim();
 tests.FailedDemandWaitsForSecondHigherLowReset();
 tests.KeepsOnlyNewestZone();
 tests.RangeFallbackUsesStrictOneToOneRisk();
+tests.APlusRequiresWickOnlyZoneTap();
 tests.OpenCodeUsesOnlyFreeModelLadder();
 tests.OpenCodeTestsFreeModelsUntilOneWorks();
 await tests.OpenCodeFallbackKeepsCurrentBotStatusAsync();
@@ -103,6 +104,31 @@ internal sealed class DesktopStrategyTests
             decision.Risk.Text.Contains("strict 1:1", StringComparison.OrdinalIgnoreCase) &&
             decision.Risk.Text.Contains("No runner", StringComparison.OrdinalIgnoreCase),
             "range fallback risk text must enforce strict 1:1 with no runner");
+    }
+
+    public void APlusRequiresWickOnlyZoneTap()
+    {
+        var bullish = HtfBullish();
+        var wickOnlyDecision = _engine.CalculateStrategyDecision(
+            ExecutionWithZoneTap(tapIsWickOnly: true),
+            bullish,
+            bullish,
+            bullish,
+            bullish,
+            bullish);
+        var bodyInZoneDecision = _engine.CalculateStrategyDecision(
+            ExecutionWithZoneTap(tapIsWickOnly: false),
+            bullish,
+            bullish,
+            bullish,
+            bullish,
+            bullish);
+
+        Assert(wickOnlyDecision.Execution.Latest.APlusBuy, "wick-only tap with no body in zone should allow A+ buy");
+        Assert(wickOnlyDecision.Execution.Latest.LastTap?.WickOnlyNoBodyInZone == true, "tap should record wick-only/no-body A+ eligibility");
+        Assert(bodyInZoneDecision.Execution.Latest.BuyTrigger, "body-in-zone fixture should still be a normal buy trigger");
+        Assert(!bodyInZoneDecision.Execution.Latest.APlusBuy, "body entering the zone must block A+ buy");
+        Assert(bodyInZoneDecision.Execution.Latest.LastTap?.WickOnlyNoBodyInZone == false, "body-in-zone tap should record that it is not A+ clean");
     }
 
     public void OpenCodeUsesOnlyFreeModelLadder()
@@ -272,6 +298,25 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
             Candle(24, 95, 96, 94, 95),
             Candle(25, 96, 103, 95, 102),
         });
+        return bars;
+    }
+
+    private static List<MarketCandle> ExecutionWithZoneTap(bool tapIsWickOnly)
+    {
+        var bars = Filler(22, 96);
+        bars.AddRange(new[]
+        {
+            Candle(22, 96, 97, 95, 96),
+            Candle(23, 97, 101, 96, 100),
+            Candle(24, 96, 97, 94, 95),
+            Candle(25, 98, 99, 97, 98),
+            Candle(26, 95, 96, 94, 95),
+            Candle(27, 96, 103, 95, 102),
+        });
+        bars.Add(tapIsWickOnly
+            ? Candle(28, 102, 103, 94.5, 102.5)
+            : Candle(28, 96.2, 103, 94.5, 96.5));
+        bars.Add(Candle(29, 103.1, 107, 103, 106));
         return bars;
     }
 

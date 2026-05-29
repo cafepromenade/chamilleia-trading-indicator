@@ -200,7 +200,7 @@
         if (base) {
           zones.length = 0;
           lastTap = null;
-          zones.unshift({ ...base, isDemand: true, invalidated: false, tapped: false, createdAt: index });
+          zones.unshift({ ...base, isDemand: true, invalidated: false, tapped: false, bodyEnteredZone: false, createdAt: index });
           events.push({ type: "BOS up", bar: index });
         }
       }
@@ -210,13 +210,19 @@
         if (base) {
           zones.length = 0;
           lastTap = null;
-          zones.unshift({ ...base, isDemand: false, invalidated: false, tapped: false, createdAt: index });
+          zones.unshift({ ...base, isDemand: false, invalidated: false, tapped: false, bodyEnteredZone: false, createdAt: index });
           events.push({ type: "BOS down", bar: index });
         }
       }
 
       const zone = zones[0];
       if (zone && !zone.invalidated) {
+        const bodyTop = Math.max(candle.open, candle.close);
+        const bodyBot = Math.min(candle.open, candle.close);
+        const bodyTouchesZone = bodyBot <= zone.top && bodyTop >= zone.bot;
+        const wickOnlyTap = zone.isDemand
+          ? candle.low <= zone.top && bodyBot > zone.top
+          : candle.high >= zone.bot && bodyTop < zone.bot;
         const tappedNow = candle.low <= zone.top && candle.high >= zone.bot;
         if (tappedNow && !zone.tapped && index > zone.createdAt) {
           zone.tapped = true;
@@ -225,8 +231,13 @@
             bot: zone.bot,
             isDemand: zone.isDemand,
             bar: index,
+            wickOnlyNoBodyInZone: wickOnlyTap && !zone.bodyEnteredZone,
           };
           events.push({ type: zone.isDemand ? "Demand tap" : "Supply tap", bar: index });
+        }
+
+        if (bodyTouchesZone && index > zone.createdAt) {
+          zone.bodyEnteredZone = true;
         }
 
         const bodyThrough = zone.isDemand ? candle.close < zone.bot : candle.close > zone.top;
@@ -246,8 +257,8 @@
       );
       const buyTrigger = Boolean(demandTapClose && candle.high > previous.high && bull);
       const sellTrigger = Boolean(supplyTapClose && candle.low < previous.low && bear);
-      const aPlusBuy = Boolean(buyTrigger && candle.open >= lastTap.top);
-      const aPlusSell = Boolean(sellTrigger && candle.open <= lastTap.bot);
+      const aPlusBuy = Boolean(buyTrigger && candle.open >= lastTap.top && lastTap.wickOnlyNoBodyInZone && !zone?.bodyEnteredZone);
+      const aPlusSell = Boolean(sellTrigger && candle.open <= lastTap.bot && lastTap.wickOnlyNoBodyInZone && !zone?.bodyEnteredZone);
 
       latest = {
         ...statusForBar({ buyTrigger, sellTrigger, aPlusBuy, aPlusSell, bull, bear }),

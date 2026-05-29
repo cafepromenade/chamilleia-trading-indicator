@@ -383,11 +383,22 @@ public sealed class StrategyEngine
             var zone = zones.FirstOrDefault();
             if (zone is not null && !zone.Invalidated)
             {
+                var bodyTop = Math.Max(candle.Open, candle.Close);
+                var bodyBot = Math.Min(candle.Open, candle.Close);
+                var bodyTouchesZone = bodyBot <= zone.Top && bodyTop >= zone.Bot;
+                var wickOnlyTap = zone.IsDemand
+                    ? candle.Low <= zone.Top && bodyBot > zone.Top
+                    : candle.High >= zone.Bot && bodyTop < zone.Bot;
                 var tappedNow = candle.Low <= zone.Top && candle.High >= zone.Bot;
                 if (tappedNow && !zone.Tapped && index > zone.CreatedAt)
                 {
                     zone.Tapped = true;
-                    lastTap = new Tap(zone.Top, zone.Bot, zone.IsDemand, index);
+                    lastTap = new Tap(zone.Top, zone.Bot, zone.IsDemand, index, wickOnlyTap && !zone.BodyEnteredZone);
+                }
+
+                if (bodyTouchesZone && index > zone.CreatedAt)
+                {
+                    zone.BodyEnteredZone = true;
                 }
 
                 var bodyThrough = zone.IsDemand ? candle.Close < zone.Bot : candle.Close > zone.Top;
@@ -405,8 +416,8 @@ public sealed class StrategyEngine
             var supplyTapClose = previous is not null && lastTap is not null && !lastTap.IsDemand && previous.Low <= lastTap.Top && previous.High >= lastTap.Bot;
             var buyTrigger = demandTapClose && candle.High > previous!.High && bull;
             var sellTrigger = supplyTapClose && candle.Low < previous!.Low && bear;
-            var aPlusBuy = buyTrigger && lastTap is not null && candle.Open >= lastTap.Top;
-            var aPlusSell = sellTrigger && lastTap is not null && candle.Open <= lastTap.Bot;
+            var aPlusBuy = buyTrigger && lastTap is not null && candle.Open >= lastTap.Top && lastTap.WickOnlyNoBodyInZone && zone?.BodyEnteredZone != true;
+            var aPlusSell = sellTrigger && lastTap is not null && candle.Open <= lastTap.Bot && lastTap.WickOnlyNoBodyInZone && zone?.BodyEnteredZone != true;
             var baseStatus = StatusForBar(buyTrigger, sellTrigger, aPlusBuy, aPlusSell, bull, bear);
 
             latest = new ChamilleiaLatest
@@ -952,6 +963,7 @@ public sealed class StrategyEngine
         public bool IsDemand { get; init; }
         public bool Invalidated { get; set; }
         public bool Tapped { get; set; }
+        public bool BodyEnteredZone { get; set; }
         public int CreatedAt { get; init; }
     }
 }
