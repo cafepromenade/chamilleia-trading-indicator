@@ -53,7 +53,9 @@ jobs:
         run: |
           choco install nsis -y --no-progress
           $nsisPath = "${env:ProgramFiles(x86)}\NSIS"
+          $nsisBinPath = Join-Path $nsisPath "Bin"
           Add-Content $env:GITHUB_PATH $nsisPath
+          Add-Content $env:GITHUB_PATH $nsisBinPath
 
       - name: Restore
         shell: pwsh
@@ -76,7 +78,20 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path $env:RELEASE_DIR | Out-Null
-          makensis `
+          $makensis = (Get-Command makensis -ErrorAction SilentlyContinue)?.Source
+          if (-not $makensis) {
+            $candidates = @(
+              "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
+              "${env:ProgramFiles(x86)}\NSIS\Bin\makensis.exe",
+              "${env:ProgramFiles}\NSIS\makensis.exe",
+              "${env:ProgramFiles}\NSIS\Bin\makensis.exe"
+            )
+            $makensis = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (-not $makensis) {
+            throw "makensis.exe was not found after NSIS install."
+          }
+          & $makensis `
             /DVERSION=$env:VERSION `
             /DPUBLISH_DIR="$env:PUBLISH_DIR" `
             /DOUT_FILE="$env:RELEASE_DIR\ChamSD.Desktop.Setup.exe" `
