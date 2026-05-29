@@ -10,6 +10,7 @@ tests.DesktopStatusAnimationIsDramaticAndColorCoded();
 tests.DesktopWindowIsFixedSize();
 tests.DesktopUserInterfaceHasNoExampleOrAdClutter();
 tests.DesktopUsesLiveMultiTimeframeDataOnly();
+tests.DesktopUsesTwentyFourHourTimeOnly();
 Console.WriteLine("desktop strategy tests passed");
 
 internal sealed class DesktopStrategyTests
@@ -160,6 +161,23 @@ FINAL BOT READ: STATUS: WAIT FOR BUY
         {
             Assert(!pageCode.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"desktop app must not use {forbidden}");
             Assert(!dataService.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"desktop data service must not use {forbidden}");
+        }
+    }
+
+    public void DesktopUsesTwentyFourHourTimeOnly()
+    {
+        var pageCode = ReadRepoFile("desktop/ChamSD.Desktop/MainPage.xaml.cs");
+        var strategyCode = ReadRepoFile("desktop/ChamSD.Desktop/StrategyEngine.cs");
+
+        Assert(pageCode.Contains("HH:mm zzz", StringComparison.Ordinal), "desktop live candle timestamp should use 24-hour HH:mm format");
+        Assert(pageCode.Contains("HH:mm:ss", StringComparison.Ordinal), "desktop update/log timestamps should use 24-hour HH:mm:ss format");
+        Assert(strategyCode.Contains("{local:HH:mm} ET", StringComparison.Ordinal), "desktop session text should use 24-hour HH:mm ET");
+        Assert(strategyCode.Contains("09:30 ET", StringComparison.Ordinal), "desktop session rule should describe New York 09:30 ET in 24-hour time");
+
+        foreach (var forbidden in new[] { "hh:mm", "h:mm tt", "hh:mm tt", ":mm tt", " AM", " PM" })
+        {
+            Assert(!pageCode.Contains(forbidden, StringComparison.Ordinal), $"desktop page must not use 12-hour time token {forbidden}");
+            Assert(!strategyCode.Contains(forbidden, StringComparison.Ordinal), $"desktop strategy text must not use 12-hour time token {forbidden}");
         }
     }
 

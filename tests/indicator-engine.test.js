@@ -168,6 +168,16 @@ function testWebsiteLinksLatestDesktopInstaller() {
   assert(statusCode.includes("ChamSD.Desktop.Setup.exe"), "latest release lookup should target the NSIS installer asset");
 }
 
+function testWebsiteUsesTwentyFourHourTimeOnly() {
+  assert(statusCode.includes('hour: "2-digit"'), "website visible chart timestamps should use fixed-width 24-hour hours");
+  assert(statusCode.includes('hourCycle: "h23"'), "website visible timestamps should use 00-23 hour cycle");
+  assert(statusCode.includes("hour12: false"), "website visible timestamps should explicitly disable AM/PM output");
+  assert(code.includes('hourCycle: "h23"'), "strategy session text should use 00-23 hour cycle");
+  assert(code.includes('padStart(2, "0")'), "strategy session text should show fixed-width HH:mm time");
+  assert(!/\bhour12\s*:\s*true\b/.test(statusCode), "website must not enable 12-hour time");
+  assert(!/\b(AM|PM)\b/.test([htmlCode, statusCode].join("\n")), "website public UI code must not contain AM/PM time labels");
+}
+
 testPrimaryIndicationGate();
 testFailedDemandNeedsSecondHigherLowReset();
 testNewestZoneOnly();
@@ -176,5 +186,6 @@ testWebsiteHasDramaticStatusFlash();
 testWebsiteHasNoExampleOrAdClutter();
 testWebsiteUsesLiveMultiTimeframeDataOnly();
 testWebsiteLinksLatestDesktopInstaller();
+testWebsiteUsesTwentyFourHourTimeOnly();
 
 console.log("indicator-engine tests passed");
