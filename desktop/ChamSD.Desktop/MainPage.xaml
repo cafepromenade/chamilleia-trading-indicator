@@ -8,9 +8,11 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Background="#F5F7FA">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Padding="20" Spacing="14">
+    <Grid Background="#F5F7FA" Padding="14" RowSpacing="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
                 <Border
                     x:Name="StatusBar"
                     Padding="18,14"
@@ -58,20 +60,32 @@
                     </Grid>
                 </Border>
 
-                <Grid ColumnSpacing="14">
+                <Grid
+                    Grid.Row="1"
+                    MaxWidth="1160"
+                    HorizontalAlignment="Stretch"
+                    ColumnSpacing="14">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="340" />
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Spacing="14">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <Border
-                            Padding="14"
+                            Padding="12"
                             Background="White"
                             BorderBrush="#D6DBE3"
                             BorderThickness="1"
                             CornerRadius="8">
-                            <StackPanel Spacing="12">
+                            <Grid RowSpacing="10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -118,8 +132,9 @@
 
                                 <Canvas
                                     x:Name="ChartCanvas"
-                                    Height="380"
-                                    MinWidth="720"
+                                    Grid.Row="1"
+                                    MinHeight="280"
+                                    MinWidth="540"
                                     Background="#0E1726"
                                     RenderTransformOrigin="0.5,0.5"
                                     SizeChanged="ChartCanvas_SizeChanged">
@@ -127,24 +142,24 @@
                                         <CompositeTransform x:Name="ChartCanvasTransform" />
                                     </Canvas.RenderTransform>
                                 </Canvas>
-                            </StackPanel>
+                            </Grid>
                         </Border>
 
-                        <Grid ColumnSpacing="14">
+                        <Grid Grid.Row="1" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
                             <Border
-                                Padding="14"
+                                Padding="12"
                                 Background="White"
                                 BorderBrush="#D6DBE3"
                                 BorderThickness="1"
                                 CornerRadius="8">
                                 <StackPanel Spacing="10">
                                     <TextBlock
-                                        FontSize="18"
+                                        FontSize="17"
                                         FontWeight="SemiBold"
                                         Text="Live Facts" />
                                     <Grid RowSpacing="8" ColumnSpacing="12">
@@ -178,14 +193,14 @@
 
                             <Border
                                 Grid.Column="1"
-                                Padding="14"
+                                Padding="12"
                                 Background="White"
                                 BorderBrush="#D6DBE3"
                                 BorderThickness="1"
                                 CornerRadius="8">
                                 <StackPanel Spacing="10">
                                     <TextBlock
-                                        FontSize="18"
+                                        FontSize="17"
                                         FontWeight="SemiBold"
                                         Text="Risk Plan" />
                                     <Grid RowSpacing="8" ColumnSpacing="12">
@@ -219,217 +234,292 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
-                    </StackPanel>
+                    </Grid>
 
-                    <StackPanel Grid.Column="1" Spacing="14">
+                    <Grid Grid.Column="1" RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="1.35*" />
+                        </Grid.RowDefinitions>
                         <Border
-                            Padding="14"
+                            Padding="12"
                             Background="White"
                             BorderBrush="#D6DBE3"
                             BorderThickness="1"
                             CornerRadius="8">
-                            <StackPanel Spacing="10">
+                            <Grid RowSpacing="10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
                                 <TextBlock
-                                    FontSize="18"
+                                    FontSize="17"
                                     FontWeight="SemiBold"
                                     Text="Strategy Checklist" />
-                                <ItemsControl x:Name="ChecklistItems">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="local:ChecklistItem">
-                                            <Border
-                                                Margin="0,0,0,8"
-                                                Padding="10"
-                                                Background="#F6F8FB"
-                                                CornerRadius="6">
-                                                <Grid ColumnSpacing="10">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="56" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock
-                                                        FontWeight="SemiBold"
-                                                        Text="{x:Bind State}" />
-                                                    <StackPanel Grid.Column="1">
-                                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind Label}" />
-                                                        <TextBlock Text="{x:Bind Text}" TextWrapping="Wrap" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
+                                <ScrollViewer
+                                    Grid.Row="1"
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="ChecklistItems">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="local:ChecklistItem">
+                                                <Border
+                                                    Margin="0,0,0,8"
+                                                    Padding="8"
+                                                    Background="#F6F8FB"
+                                                    CornerRadius="6">
+                                                    <Grid ColumnSpacing="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="52" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock
+                                                            FontWeight="SemiBold"
+                                                            Text="{x:Bind State}" />
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock FontWeight="SemiBold" Text="{x:Bind Label}" />
+                                                            <TextBlock Text="{x:Bind Text}" TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
                         </Border>
 
                         <Border
-                            Padding="14"
+                            Grid.Row="1"
+                            Padding="12"
                             Background="White"
                             BorderBrush="#D6DBE3"
                             BorderThickness="1"
                             CornerRadius="8">
                             <StackPanel Spacing="10">
-                                <TextBlock
-                                    FontSize="18"
-                                    FontWeight="SemiBold"
-                                    Text="Webhooks" />
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <ListView
-                                        x:Name="WebhookList"
-                                        AutomationProperties.AutomationId="WebhookList"
-                                        AutomationProperties.Name="Webhook URLs"
-                                        Height="138"
-                                        DisplayMemberPath="DisplayName"
-                                        SelectionChanged="WebhookList_SelectionChanged" />
-                                    <StackPanel Grid.Column="1" Spacing="8">
-                                        <Button
-                                            AutomationProperties.AutomationId="AddWebhookButton"
-                                            AutomationProperties.Name="Add webhook URL"
-                                            Click="AddWebhookButton_Click"
-                                            Content="Add" />
-                                        <Button
-                                            AutomationProperties.AutomationId="SaveWebhookButton"
-                                            AutomationProperties.Name="Save webhook URL"
-                                            Click="SaveWebhookButton_Click"
-                                            Content="Save" />
-                                        <Button
-                                            AutomationProperties.AutomationId="RemoveWebhookButton"
-                                            AutomationProperties.Name="Remove webhook URL"
-                                            Click="RemoveWebhookButton_Click"
-                                            Content="Remove" />
-                                        <Button
-                                            AutomationProperties.AutomationId="SendWebhookButton"
-                                            AutomationProperties.Name="Send selected webhook"
-                                            Click="SendWebhookButton_Click"
-                                            Content="Send" />
+                                    <StackPanel>
+                                        <TextBlock
+                                            FontSize="18"
+                                            FontWeight="SemiBold"
+                                            Text="OpenCode Prediction" />
+                                        <TextBlock
+                                            Foreground="#596579"
+                                            Text="Uses opencode to think through the live structure and predict the next likely move."
+                                            TextWrapping="Wrap" />
                                     </StackPanel>
-                                </Grid>
-
-                                <Grid RowSpacing="8" ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="110" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <TextBox
-                                        x:Name="WebhookNameTextBox"
-                                        AutomationProperties.AutomationId="WebhookNameTextBox"
-                                        AutomationProperties.Name="Webhook name"
-                                        Header="Name"
-                                        PlaceholderText="Main alert" />
-                                    <ComboBox
-                                        x:Name="WebhookMethodComboBox"
-                                        AutomationProperties.AutomationId="WebhookMethodComboBox"
-                                        AutomationProperties.Name="Webhook method"
-                                        Grid.Column="1"
-                                        Header="Method" />
-                                    <TextBox
-                                        x:Name="WebhookUrlTextBox"
-                                        AutomationProperties.AutomationId="WebhookUrlTextBox"
-                                        AutomationProperties.Name="Webhook URL"
-                                        Grid.Row="1"
-                                        Grid.ColumnSpan="2"
-                                        Header="URL"
-                                        PlaceholderText="https://your-server.example/webhook" />
-                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16">
-                                        <CheckBox
-                                            x:Name="WebhookEnabledCheckBox"
-                                            AutomationProperties.AutomationId="WebhookEnabledCheckBox"
-                                            AutomationProperties.Name="Webhook enabled"
-                                            Content="Enabled"
-                                            IsChecked="True" />
-                                        <CheckBox
-                                            x:Name="WebhookOnStatusChangeCheckBox"
-                                            AutomationProperties.AutomationId="WebhookOnStatusChangeCheckBox"
-                                            AutomationProperties.Name="Send webhook when status changes"
-                                            Content="Send when status changes" />
-                                    </StackPanel>
-                                </Grid>
-
-                                <TextBlock FontWeight="SemiBold" Text="Headers" />
-                                <Grid ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox
-                                        x:Name="HeaderKeyTextBox"
-                                        AutomationProperties.AutomationId="HeaderKeyTextBox"
-                                        AutomationProperties.Name="Header name"
-                                        PlaceholderText="Header name" />
-                                    <TextBox
-                                        x:Name="HeaderValueTextBox"
-                                        AutomationProperties.AutomationId="HeaderValueTextBox"
-                                        AutomationProperties.Name="Header value"
-                                        Grid.Column="1"
-                                        PlaceholderText="Header value" />
                                     <Button
-                                        AutomationProperties.AutomationId="AddHeaderButton"
-                                        AutomationProperties.Name="Add webhook header"
-                                        Grid.Column="2"
-                                        Click="AddHeaderButton_Click"
-                                        Content="Add" />
-                                </Grid>
-                                <ListView
-                                    x:Name="HeadersList"
-                                    AutomationProperties.AutomationId="HeadersList"
-                                    AutomationProperties.Name="Webhook headers"
-                                    Height="72"
-                                    DisplayMemberPath="DisplayText" />
-
-                                <TextBlock FontWeight="SemiBold" Text="Values" />
-                                <Grid ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox
-                                        x:Name="ValueKeyTextBox"
-                                        AutomationProperties.AutomationId="ValueKeyTextBox"
-                                        AutomationProperties.Name="Value name"
-                                        PlaceholderText="Value name" />
-                                    <TextBox
-                                        x:Name="ValueValueTextBox"
-                                        AutomationProperties.AutomationId="ValueValueTextBox"
-                                        AutomationProperties.Name="Value"
+                                        x:Name="ThinkButton"
+                                        AutomationProperties.AutomationId="ThinkButton"
+                                        AutomationProperties.Name="Run OpenCode prediction"
                                         Grid.Column="1"
-                                        PlaceholderText="Value" />
-                                    <Button
-                                        AutomationProperties.AutomationId="AddValueButton"
-                                        AutomationProperties.Name="Add webhook value"
-                                        Grid.Column="2"
-                                        Click="AddValueButton_Click"
-                                        Content="Add" />
+                                        Click="ThinkButton_Click"
+                                        Content="Predict" />
                                 </Grid>
-                                <ListView
-                                    x:Name="ValuesList"
-                                    AutomationProperties.AutomationId="ValuesList"
-                                    AutomationProperties.Name="Webhook values"
-                                    Height="72"
-                                    DisplayMemberPath="DisplayText" />
-
+                                <CheckBox
+                                    x:Name="AutoThinkCheckBox"
+                                    AutomationProperties.AutomationId="AutoThinkCheckBox"
+                                    AutomationProperties.Name="Run OpenCode prediction when status changes"
+                                    HorizontalContentAlignment="Stretch">
+                                    <TextBlock Text="Predict when status changes" TextWrapping="Wrap" />
+                                </CheckBox>
                                 <TextBox
-                                    x:Name="WebhookLogTextBox"
-                                    AutomationProperties.AutomationId="WebhookLogTextBox"
-                                    AutomationProperties.Name="Webhook log"
-                                    Height="104"
-                                    Header="Webhook log"
+                                    x:Name="ThinkingTextBox"
+                                    AutomationProperties.AutomationId="ThinkingTextBox"
+                                    AutomationProperties.Name="OpenCode prediction result"
+                                    Height="90"
                                     IsReadOnly="True"
+                                    PlaceholderText="OpenCode thinking and prediction appears here."
                                     TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
-                    </StackPanel>
+
+                        <Border
+                            Grid.Row="2"
+                            Padding="12"
+                            Background="White"
+                            BorderBrush="#D6DBE3"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <Grid RowSpacing="10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock
+                                    FontSize="17"
+                                    FontWeight="SemiBold"
+                                    Text="Webhooks" />
+                                <ScrollViewer
+                                    Grid.Row="1"
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="8">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ListView
+                                                x:Name="WebhookList"
+                                                AutomationProperties.AutomationId="WebhookList"
+                                                AutomationProperties.Name="Webhook URLs"
+                                                Height="58"
+                                                DisplayMemberPath="DisplayName"
+                                                SelectionChanged="WebhookList_SelectionChanged" />
+                                            <StackPanel Grid.Column="1" Spacing="6">
+                                                <Button
+                                                    AutomationProperties.AutomationId="AddWebhookButton"
+                                                    AutomationProperties.Name="Add webhook URL"
+                                                    Click="AddWebhookButton_Click"
+                                                    Content="Add" />
+                                                <Button
+                                                    AutomationProperties.AutomationId="SaveWebhookButton"
+                                                    AutomationProperties.Name="Save webhook URL"
+                                                    Click="SaveWebhookButton_Click"
+                                                    Content="Save" />
+                                                <Button
+                                                    AutomationProperties.AutomationId="RemoveWebhookButton"
+                                                    AutomationProperties.Name="Remove webhook URL"
+                                                    Click="RemoveWebhookButton_Click"
+                                                    Content="Remove" />
+                                                <Button
+                                                    AutomationProperties.AutomationId="SendWebhookButton"
+                                                    AutomationProperties.Name="Send selected webhook"
+                                                    Click="SendWebhookButton_Click"
+                                                    Content="Send" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Grid RowSpacing="7" ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="110" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBox
+                                                x:Name="WebhookNameTextBox"
+                                                AutomationProperties.AutomationId="WebhookNameTextBox"
+                                                AutomationProperties.Name="Webhook name"
+                                                Header="Name"
+                                                PlaceholderText="Main alert" />
+                                            <ComboBox
+                                                x:Name="WebhookMethodComboBox"
+                                                AutomationProperties.AutomationId="WebhookMethodComboBox"
+                                                AutomationProperties.Name="Webhook method"
+                                                Grid.Column="1"
+                                                Header="Method" />
+                                            <TextBox
+                                                x:Name="WebhookUrlTextBox"
+                                                AutomationProperties.AutomationId="WebhookUrlTextBox"
+                                                AutomationProperties.Name="Webhook URL"
+                                                Grid.Row="1"
+                                                Grid.ColumnSpan="2"
+                                                Header="URL"
+                                                PlaceholderText="https://your-server.example/webhook" />
+                                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16">
+                                                <CheckBox
+                                                    x:Name="WebhookEnabledCheckBox"
+                                                    AutomationProperties.AutomationId="WebhookEnabledCheckBox"
+                                                    AutomationProperties.Name="Webhook enabled"
+                                                    Content="Enabled"
+                                                    IsChecked="True" />
+                                                <CheckBox
+                                                    x:Name="WebhookOnStatusChangeCheckBox"
+                                                    AutomationProperties.AutomationId="WebhookOnStatusChangeCheckBox"
+                                                    AutomationProperties.Name="Send webhook when status changes"
+                                                    HorizontalContentAlignment="Stretch">
+                                                    <TextBlock Text="Send when status changes" TextWrapping="Wrap" />
+                                                </CheckBox>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock FontWeight="SemiBold" Text="Headers" />
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox
+                                                x:Name="HeaderKeyTextBox"
+                                                AutomationProperties.AutomationId="HeaderKeyTextBox"
+                                                AutomationProperties.Name="Header name"
+                                                PlaceholderText="Header name" />
+                                            <TextBox
+                                                x:Name="HeaderValueTextBox"
+                                                AutomationProperties.AutomationId="HeaderValueTextBox"
+                                                AutomationProperties.Name="Header value"
+                                                Grid.Column="1"
+                                                PlaceholderText="Header value" />
+                                            <Button
+                                                AutomationProperties.AutomationId="AddHeaderButton"
+                                                AutomationProperties.Name="Add webhook header"
+                                                Grid.Column="2"
+                                                Click="AddHeaderButton_Click"
+                                                Content="Add" />
+                                        </Grid>
+                                        <ListView
+                                            x:Name="HeadersList"
+                                            AutomationProperties.AutomationId="HeadersList"
+                                            AutomationProperties.Name="Webhook headers"
+                                            Height="34"
+                                            DisplayMemberPath="DisplayText" />
+
+                                        <TextBlock FontWeight="SemiBold" Text="Values" />
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox
+                                                x:Name="ValueKeyTextBox"
+                                                AutomationProperties.AutomationId="ValueKeyTextBox"
+                                                AutomationProperties.Name="Value name"
+                                                PlaceholderText="Value name" />
+                                            <TextBox
+                                                x:Name="ValueValueTextBox"
+                                                AutomationProperties.AutomationId="ValueValueTextBox"
+                                                AutomationProperties.Name="Value"
+                                                Grid.Column="1"
+                                                PlaceholderText="Value" />
+                                            <Button
+                                                AutomationProperties.AutomationId="AddValueButton"
+                                                AutomationProperties.Name="Add webhook value"
+                                                Grid.Column="2"
+                                                Click="AddValueButton_Click"
+                                                Content="Add" />
+                                        </Grid>
+                                        <ListView
+                                            x:Name="ValuesList"
+                                            AutomationProperties.AutomationId="ValuesList"
+                                            AutomationProperties.Name="Webhook values"
+                                            Height="34"
+                                            DisplayMemberPath="DisplayText" />
+
+                                        <TextBox
+                                            x:Name="WebhookLogTextBox"
+                                            AutomationProperties.AutomationId="WebhookLogTextBox"
+                                            AutomationProperties.Name="Webhook log"
+                                            Height="52"
+                                            Header="Webhook log"
+                                            IsReadOnly="True"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
-            </StackPanel>
-        </ScrollViewer>
     </Grid>
 </Page>

@@ -3,7 +3,6 @@ namespace ChamSD_Desktop;
 public sealed class StrategyEngine
 {
     private const int PivotLen = 2;
-    private const int TrendLen = 8;
     private const int AvgRangeLen = 5;
     private const double ImpulseMult = 0.6;
     private const int MaxZones = 6;
@@ -29,6 +28,14 @@ public sealed class StrategyEngine
         var hasAlignedTap = latest.LastTap is not null && (
             bias.Direction == "bullish" && latest.LastTap.IsDemand ||
             bias.Direction == "bearish" && !latest.LastTap.IsDemand);
+        var rangeHigh = h1Bias.SwingHigh ?? h4Bias.SwingHigh;
+        var rangeLow = h1Bias.SwingLow ?? h4Bias.SwingLow;
+        var rangeSpan = rangeHigh is not null && rangeLow is not null ? Math.Abs(rangeHigh.Value - rangeLow.Value) : (double?)null;
+        var rangeBuffer = rangeSpan is not null ? Math.Max(rangeSpan.Value * 0.12, Math.Abs(latest.Close) * 0.0004) : (double?)null;
+        var rangeFallback = bias.Direction == "neutral" && rangeHigh is not null && rangeLow is not null && rangeSpan > 0;
+        var nearSupport = rangeFallback && rangeBuffer is not null && latest.Close <= rangeLow + rangeBuffer;
+        var nearResistance = rangeFallback && rangeBuffer is not null && latest.Close >= rangeHigh - rangeBuffer;
+        var newestZoneInvalidated = execution.Zones.FirstOrDefault()?.Invalidated == true;
 
         var className = "wait";
         var label = "STATUS: WAIT";
@@ -54,11 +61,28 @@ public sealed class StrategyEngine
         else if (bias.Direction == "neutral" || conflict)
         {
             className = "no-trade";
-            label = "STATUS: NO TRADE";
-            phase = conflict ? "SHIFT OF GEARS CHECK" : "BASELINE SCAN";
-            note = conflict
-                ? "5M trigger conflicts with higher-timeframe bias. Stand aside."
-                : "No clear HTF indication yet. Stand aside.";
+            if (nearSupport)
+            {
+                className = "wait";
+                label = "STATUS: WAIT RANGE BUY";
+                phase = "SUPPORT / RESISTANCE";
+                note = "Market is ranging. Only consider the support floor with strict 1:1 risk.";
+            }
+            else if (nearResistance)
+            {
+                className = "wait";
+                label = "STATUS: WAIT RANGE SELL";
+                phase = "SUPPORT / RESISTANCE";
+                note = "Market is ranging. Only consider the resistance ceiling with strict 1:1 risk.";
+            }
+            else
+            {
+                label = "STATUS: NO TRADE";
+                phase = conflict ? "SHIFT OF GEARS CHECK" : "BASELINE SCAN";
+                note = conflict
+                    ? "5M trigger conflicts with higher-timeframe bias. Stand aside."
+                    : "No clear HTF indication yet. Stand aside.";
+            }
         }
         else if (hasAlignedTap)
         {
@@ -80,8 +104,16 @@ public sealed class StrategyEngine
         if (hasAlignedTap) confidence += 15;
         if (alignedBuy || alignedSell) confidence += 20;
         if (latest.APlusBuy || latest.APlusSell) confidence += 10;
+        if (nearSupport || nearResistance) confidence += 10;
+        if (newestZoneInvalidated) confidence = Math.Min(confidence, 35);
         if (conflict) confidence = Math.Min(confidence, 25);
         confidence = Math.Clamp(confidence, 0, 100);
+
+        var indicationLevel = bias.Direction == "bullish"
+            ? h4Bias.IndicationLevel ?? h1Bias.IndicationLevel
+            : bias.Direction == "bearish"
+                ? h4Bias.IndicationLevel ?? h1Bias.IndicationLevel
+                : null;
 
         return new StrategyDecision
         {
@@ -96,12 +128,13 @@ public sealed class StrategyEngine
             Execution = execution,
             Checklist = new[]
             {
-                new ChecklistItem { Label = "4H/1H bias", Ok = bias.Direction != "neutral", Text = bias.Reason },
+                new ChecklistItem { Label = "ICC phase", Ok = phase != "BASELINE SCAN", Text = $"{phase}: {note}" },
+                new ChecklistItem { Label = "4H/1H bias", Ok = bias.Direction != "neutral", Text = $"{bias.Reason} Indication level: {FormatNullable(indicationLevel)}." },
                 new ChecklistItem
                 {
-                    Label = "5M trend alignment",
+                    Label = "5M structure alignment",
                     Ok = bias.Direction == "bullish" && latest.Bull || bias.Direction == "bearish" && latest.Bear,
-                    Text = latest.Bull ? "5M is rising." : latest.Bear ? "5M is falling." : "5M is not directional.",
+                    Text = latest.Bull ? "5M market structure is bullish." : latest.Bear ? "5M market structure is bearish." : "5M has no clean market-structure direction.",
                 },
                 new ChecklistItem
                 {
@@ -117,6 +150,18 @@ public sealed class StrategyEngine
                     Ok = alignedBuy || alignedSell,
                     Text = alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : "No aligned break-of-candle trigger yet.",
                 },
+                new ChecklistItem
+                {
+                    Label = "Invalidation",
+                    Ok = !newestZoneInvalidated,
+                    Text = newestZoneInvalidated ? "Newest zone was body-closed through. Wait for minor structure reset." : "No body-close invalidation on the newest tracked zone.",
+                },
+                new ChecklistItem
+                {
+                    Label = "Range fallback",
+                    Ok = nearSupport || nearResistance || !rangeFallback,
+                    Text = rangeFallback ? $"Range floor {FormatNullable(rangeLow)}, ceiling {FormatNullable(rangeHigh)}. {(nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait.")}" : "Not using support/resistance fallback while HTF bias is active.",
+                },
             },
             Risk = CalculateRiskPlan(latest, bias.Direction),
         };
@@ -124,12 +169,13 @@ public sealed class StrategyEngine
 
     private static ChamilleiaStatus CalculateChamilleiaStatus(IReadOnlyList<MarketCandle> candles)
     {
-        var ema = new double[candles.Count];
         var ranges = new double[candles.Count];
         var zones = new List<WorkingZone>();
-        var alpha = 2.0 / (TrendLen + 1);
+        double? priorSwingHigh = null;
+        double? priorSwingLow = null;
         double? lastSwingHigh = null;
         double? lastSwingLow = null;
+        var structureDirection = "neutral";
         Tap? lastTap = null;
         ChamilleiaLatest? latest = null;
 
@@ -137,21 +183,61 @@ public sealed class StrategyEngine
         {
             var candle = candles[index];
             ranges[index] = candle.High - candle.Low;
-            ema[index] = index == 0 ? candle.Close : candle.Close * alpha + ema[index - 1] * (1 - alpha);
 
             var pivotHigh = GetPivot(candles, index, PivotLen, highMode: true);
             var pivotLow = GetPivot(candles, index, PivotLen, highMode: false);
-            if (pivotHigh is not null) lastSwingHigh = pivotHigh.Value;
-            if (pivotLow is not null) lastSwingLow = pivotLow.Value;
+            if (pivotHigh is not null)
+            {
+                if (lastSwingHigh is not null && pivotHigh.Value > lastSwingHigh)
+                {
+                    structureDirection = "bullish";
+                }
+
+                if (lastSwingHigh is not null && pivotHigh.Value < lastSwingHigh && lastSwingLow is not null && priorSwingLow is not null && lastSwingLow < priorSwingLow)
+                {
+                    structureDirection = "bearish";
+                }
+
+                priorSwingHigh = lastSwingHigh;
+                lastSwingHigh = pivotHigh.Value;
+            }
+
+            if (pivotLow is not null)
+            {
+                if (lastSwingLow is not null && pivotLow.Value < lastSwingLow)
+                {
+                    structureDirection = "bearish";
+                }
+
+                if (lastSwingLow is not null && pivotLow.Value > lastSwingLow && lastSwingHigh is not null && priorSwingHigh is not null && lastSwingHigh > priorSwingHigh)
+                {
+                    structureDirection = "bullish";
+                }
+
+                priorSwingLow = lastSwingLow;
+                lastSwingLow = pivotLow.Value;
+            }
 
             var previous = index > 0 ? candles[index - 1] : null;
-            var bull = index > 0 && ema[index] > ema[index - 1];
-            var bear = index > 0 && ema[index] < ema[index - 1];
+            var bodyBrokeHigh = previous is not null && lastSwingHigh is not null && candle.Close > lastSwingHigh && previous.Close <= lastSwingHigh;
+            var bodyBrokeLow = previous is not null && lastSwingLow is not null && candle.Close < lastSwingLow && previous.Close >= lastSwingLow;
+            if (bodyBrokeHigh)
+            {
+                structureDirection = "bullish";
+            }
+
+            if (bodyBrokeLow)
+            {
+                structureDirection = "bearish";
+            }
+
+            var bull = structureDirection == "bullish";
+            var bear = structureDirection == "bearish";
             var avgRange = GetRangeAverage(ranges, index, AvgRangeLen);
             var strongUp = avgRange is not null && candle.Close > candle.Open && ranges[index] > avgRange * ImpulseMult;
             var strongDown = avgRange is not null && candle.Close < candle.Open && ranges[index] > avgRange * ImpulseMult;
-            var bosUp = previous is not null && lastSwingHigh is not null && candle.High > lastSwingHigh && previous.High <= lastSwingHigh;
-            var bosDown = previous is not null && lastSwingLow is not null && candle.Low < lastSwingLow && previous.Low >= lastSwingLow;
+            var bosUp = previous is not null && lastSwingHigh is not null && candle.Close > lastSwingHigh && previous.Close <= lastSwingHigh;
+            var bosDown = previous is not null && lastSwingLow is not null && candle.Close < lastSwingLow && previous.Close >= lastSwingLow;
 
             if (bosUp && bull && strongUp)
             {
@@ -212,7 +298,6 @@ public sealed class StrategyEngine
                 ClassName = baseStatus.ClassName,
                 Bar = index,
                 Close = candle.Close,
-                Ema = Round(ema[index]),
                 Bull = bull,
                 Bear = bear,
                 BuyTrigger = buyTrigger,
@@ -235,32 +320,31 @@ public sealed class StrategyEngine
 
     private static HtfBias CalculateHtfBias(IReadOnlyList<MarketCandle> candles, string label)
     {
-        var ema = CalculateEma(candles, 20);
         var latest = candles[^1];
-        var previousEma = ema.Count > 1 ? ema[^2] : ema[^1];
-        var latestEma = ema[^1];
         var structure = FindBodyStructure(candles, 3);
         var brokeHigh = structure.SwingHigh is not null && latest.Close > structure.SwingHigh.Price;
         var brokeLow = structure.SwingLow is not null && latest.Close < structure.SwingLow.Price;
-        var emaUp = latestEma > previousEma && latest.Close > latestEma;
-        var emaDown = latestEma < previousEma && latest.Close < latestEma;
+        var higherHigh = structure.SwingHigh is not null && structure.PriorSwingHigh is not null && structure.SwingHigh.Price > structure.PriorSwingHigh.Price;
+        var higherLow = structure.SwingLow is not null && structure.PriorSwingLow is not null && structure.SwingLow.Price > structure.PriorSwingLow.Price;
+        var lowerHigh = structure.SwingHigh is not null && structure.PriorSwingHigh is not null && structure.SwingHigh.Price < structure.PriorSwingHigh.Price;
+        var lowerLow = structure.SwingLow is not null && structure.PriorSwingLow is not null && structure.SwingLow.Price < structure.PriorSwingLow.Price;
 
         var direction = "neutral";
-        var reason = "No clean body-close break or EMA direction.";
-        if (brokeHigh || !brokeLow && emaUp)
+        var reason = "No clean body-close break or market-structure sequence.";
+        if (brokeHigh || !brokeLow && higherHigh && higherLow)
         {
             direction = "bullish";
             reason = brokeHigh
                 ? $"{label} body closed above its latest structural high."
-                : $"{label} EMA is rising and price is above it.";
+                : $"{label} has a higher high and higher low structure.";
         }
 
-        if (brokeLow || !brokeHigh && emaDown)
+        if (brokeLow || !brokeHigh && lowerHigh && lowerLow)
         {
             direction = "bearish";
             reason = brokeLow
                 ? $"{label} body closed below its latest structural low."
-                : $"{label} EMA is falling and price is below it.";
+                : $"{label} has a lower high and lower low structure.";
         }
 
         return new HtfBias
@@ -269,9 +353,13 @@ public sealed class StrategyEngine
             Direction = direction,
             Reason = reason,
             Close = latest.Close,
-            Ema = Round(latestEma),
             SwingHigh = Round(structure.SwingHigh?.Price),
             SwingLow = Round(structure.SwingLow?.Price),
+            IndicationLevel = direction == "bullish"
+                ? Round(structure.SwingHigh?.Price)
+                : direction == "bearish"
+                    ? Round(structure.SwingLow?.Price)
+                    : null,
         };
     }
 
@@ -351,12 +439,12 @@ public sealed class StrategyEngine
 
         if (bull)
         {
-            return ("STATUS: WAIT FOR BUY", "Price is mostly going up. Wait for the marked area and trigger.", "wait");
+            return ("STATUS: WAIT FOR BUY", "Market structure is bullish. Wait for the marked area and trigger.", "wait");
         }
 
         if (bear)
         {
-            return ("STATUS: WAIT FOR SELL", "Price is mostly going down. Wait for the marked area and trigger.", "wait");
+            return ("STATUS: WAIT FOR SELL", "Market structure is bearish. Wait for the marked area and trigger.", "wait");
         }
 
         return ("STATUS: NO TRADE", "No clear direction. The runner says do nothing.", "no-trade");
@@ -431,22 +519,12 @@ public sealed class StrategyEngine
         return null;
     }
 
-    private static List<double> CalculateEma(IReadOnlyList<MarketCandle> candles, int length)
-    {
-        var alpha = 2.0 / (length + 1);
-        var ema = new List<double>(candles.Count);
-        for (var index = 0; index < candles.Count; index++)
-        {
-            ema.Add(index == 0 ? candles[index].Close : candles[index].Close * alpha + ema[index - 1] * (1 - alpha));
-        }
-
-        return ema;
-    }
-
     private static BodyStructure FindBodyStructure(IReadOnlyList<MarketCandle> candles, int pivotLen)
     {
         BodySwing? swingHigh = null;
         BodySwing? swingLow = null;
+        BodySwing? priorSwingHigh = null;
+        BodySwing? priorSwingLow = null;
 
         for (var index = pivotLen; index < candles.Count - pivotLen; index++)
         {
@@ -468,11 +546,20 @@ public sealed class StrategyEngine
                 if (bodyLow >= compareLow) isLow = false;
             }
 
-            if (isHigh) swingHigh = new BodySwing(bodyHigh, index);
-            if (isLow) swingLow = new BodySwing(bodyLow, index);
+            if (isHigh)
+            {
+                priorSwingHigh = swingHigh;
+                swingHigh = new BodySwing(bodyHigh, index);
+            }
+
+            if (isLow)
+            {
+                priorSwingLow = swingLow;
+                swingLow = new BodySwing(bodyLow, index);
+            }
         }
 
-        return new BodyStructure(swingHigh, swingLow);
+        return new BodyStructure(swingHigh, swingLow, priorSwingHigh, priorSwingLow);
     }
 
     private static double? Round(double? value, int places = 2)
@@ -480,11 +567,16 @@ public sealed class StrategyEngine
         return value is null || !double.IsFinite(value.Value) ? null : Math.Round(value.Value, places);
     }
 
+    private static string FormatNullable(double? value)
+    {
+        return value is null ? "-" : value.Value.ToString("0.##");
+    }
+
     private sealed record Pivot(double Value, int Index);
 
     private sealed record BodySwing(double Price, int Bar);
 
-    private sealed record BodyStructure(BodySwing? SwingHigh, BodySwing? SwingLow);
+    private sealed record BodyStructure(BodySwing? SwingHigh, BodySwing? SwingLow, BodySwing? PriorSwingHigh, BodySwing? PriorSwingLow);
 
     private sealed record WorkingZone
     {

@@ -1,11 +1,9 @@
 (function (global) {
   const DEFAULT_SETTINGS = {
     pivotLen: 2,
-    trendLen: 8,
     avgRangeLen: 5,
     impulseMult: 0.6,
     maxZones: 6,
-    useEmaTrend: true,
   };
 
   function round(value, places = 2) {
@@ -94,7 +92,7 @@
     if (bull) {
       return {
         label: "STATUS: WAIT FOR BUY",
-        note: "Price is mostly going up. Wait for the marked area and trigger.",
+        note: "Market structure is bullish. Wait for the marked area and trigger.",
         className: "wait",
       };
     }
@@ -102,7 +100,7 @@
     if (bear) {
       return {
         label: "STATUS: WAIT FOR SELL",
-        note: "Price is mostly going down. Wait for the marked area and trigger.",
+        note: "Market structure is bearish. Wait for the marked area and trigger.",
         className: "wait",
       };
     }
@@ -116,39 +114,59 @@
 
   function calculateChamilleiaStatus(candles, options = {}) {
     const settings = { ...DEFAULT_SETTINGS, ...options };
-    const ema = [];
     const ranges = [];
     const zones = [];
     const events = [];
-    const alpha = 2 / (settings.trendLen + 1);
 
+    let priorSwingHigh = null;
+    let priorSwingLow = null;
     let lastSwingHigh = null;
     let lastSwingLow = null;
+    let structureDirection = "neutral";
     let lastTap = null;
     let latest = null;
 
     candles.forEach((candle, index) => {
       ranges[index] = candle.high - candle.low;
-      ema[index] = index === 0
-        ? candle.close
-        : candle.close * alpha + ema[index - 1] * (1 - alpha);
 
       const pivotHigh = getPivot(candles, index, settings.pivotLen, "high", "high");
       const pivotLow = getPivot(candles, index, settings.pivotLen, "low", "low");
       if (pivotHigh) {
+        if (lastSwingHigh !== null && pivotHigh.value > lastSwingHigh) {
+          structureDirection = "bullish";
+        }
+        if (lastSwingHigh !== null && pivotHigh.value < lastSwingHigh && lastSwingLow !== null && priorSwingLow !== null && lastSwingLow < priorSwingLow) {
+          structureDirection = "bearish";
+        }
+        priorSwingHigh = lastSwingHigh;
         lastSwingHigh = pivotHigh.value;
       }
       if (pivotLow) {
+        if (lastSwingLow !== null && pivotLow.value < lastSwingLow) {
+          structureDirection = "bearish";
+        }
+        if (lastSwingLow !== null && pivotLow.value > lastSwingLow && lastSwingHigh !== null && priorSwingHigh !== null && lastSwingHigh > priorSwingHigh) {
+          structureDirection = "bullish";
+        }
+        priorSwingLow = lastSwingLow;
         lastSwingLow = pivotLow.value;
       }
 
       const previous = candles[index - 1];
-      const bull = settings.useEmaTrend
-        ? index > 0 && ema[index] > ema[index - 1]
-        : candle.close > ema[index];
-      const bear = settings.useEmaTrend
-        ? index > 0 && ema[index] < ema[index - 1]
-        : candle.close < ema[index];
+      const bodyBrokeHigh = Boolean(
+        previous && lastSwingHigh !== null && candle.close > lastSwingHigh && previous.close <= lastSwingHigh
+      );
+      const bodyBrokeLow = Boolean(
+        previous && lastSwingLow !== null && candle.close < lastSwingLow && previous.close >= lastSwingLow
+      );
+      if (bodyBrokeHigh) {
+        structureDirection = "bullish";
+      }
+      if (bodyBrokeLow) {
+        structureDirection = "bearish";
+      }
+      const bull = structureDirection === "bullish";
+      const bear = structureDirection === "bearish";
 
       const avgRange = getRangeAverage(ranges, index, settings.avgRangeLen);
       const strongUp = Boolean(
@@ -159,10 +177,10 @@
       );
 
       const bosUp = Boolean(
-        previous && lastSwingHigh !== null && candle.high > lastSwingHigh && previous.high <= lastSwingHigh
+        previous && lastSwingHigh !== null && candle.close > lastSwingHigh && previous.close <= lastSwingHigh
       );
       const bosDown = Boolean(
-        previous && lastSwingLow !== null && candle.low < lastSwingLow && previous.low >= lastSwingLow
+        previous && lastSwingLow !== null && candle.close < lastSwingLow && previous.close >= lastSwingLow
       );
 
       if (bosUp && bull && strongUp) {
@@ -223,9 +241,9 @@
         ...statusForBar({ buyTrigger, sellTrigger, aPlusBuy, aPlusSell, bull, bear }),
         bar: index,
         close: candle.close,
-        ema: round(ema[index]),
         bull,
         bear,
+        structureDirection,
         buyTrigger,
         sellTrigger,
         aPlusBuy,
@@ -249,22 +267,11 @@
     };
   }
 
-  function calculateEma(candles, length) {
-    const alpha = 2 / (length + 1);
-    const ema = [];
-
-    candles.forEach((candle, index) => {
-      ema[index] = index === 0
-        ? candle.close
-        : candle.close * alpha + ema[index - 1] * (1 - alpha);
-    });
-
-    return ema;
-  }
-
   function findBodyStructure(candles, pivotLen = 3) {
     let swingHigh = null;
     let swingLow = null;
+    let priorSwingHigh = null;
+    let priorSwingLow = null;
 
     for (let index = pivotLen; index < candles.length - pivotLen; index += 1) {
       const bodyHigh = Math.max(candles[index].open, candles[index].close);
@@ -287,42 +294,43 @@
       }
 
       if (isHigh) {
+        priorSwingHigh = swingHigh;
         swingHigh = { price: bodyHigh, bar: index };
       }
       if (isLow) {
+        priorSwingLow = swingLow;
         swingLow = { price: bodyLow, bar: index };
       }
     }
 
-    return { swingHigh, swingLow };
+    return { swingHigh, swingLow, priorSwingHigh, priorSwingLow };
   }
 
   function calculateHtfBias(candles, label) {
-    const ema = calculateEma(candles, 20);
     const latest = candles[candles.length - 1];
-    const previousEma = ema[ema.length - 2] ?? ema[ema.length - 1];
-    const latestEma = ema[ema.length - 1];
-    const { swingHigh, swingLow } = findBodyStructure(candles, 3);
+    const { swingHigh, swingLow, priorSwingHigh, priorSwingLow } = findBodyStructure(candles, 3);
     const bodyHigh = Math.max(latest.open, latest.close);
     const bodyLow = Math.min(latest.open, latest.close);
     const brokeHigh = Boolean(swingHigh && latest.close > swingHigh.price);
     const brokeLow = Boolean(swingLow && latest.close < swingLow.price);
-    const emaUp = latestEma > previousEma && latest.close > latestEma;
-    const emaDown = latestEma < previousEma && latest.close < latestEma;
+    const higherHigh = Boolean(swingHigh && priorSwingHigh && swingHigh.price > priorSwingHigh.price);
+    const higherLow = Boolean(swingLow && priorSwingLow && swingLow.price > priorSwingLow.price);
+    const lowerHigh = Boolean(swingHigh && priorSwingHigh && swingHigh.price < priorSwingHigh.price);
+    const lowerLow = Boolean(swingLow && priorSwingLow && swingLow.price < priorSwingLow.price);
 
     let direction = "neutral";
-    let reason = "No clean body-close break or EMA direction.";
-    if (brokeHigh || (!brokeLow && emaUp)) {
+    let reason = "No clean body-close break or market-structure sequence.";
+    if (brokeHigh || (!brokeLow && higherHigh && higherLow)) {
       direction = "bullish";
       reason = brokeHigh
         ? `${label} body closed above its latest structural high.`
-        : `${label} EMA is rising and price is above it.`;
+        : `${label} has a higher high and higher low structure.`;
     }
-    if (brokeLow || (!brokeHigh && emaDown)) {
+    if (brokeLow || (!brokeHigh && lowerHigh && lowerLow)) {
       direction = "bearish";
       reason = brokeLow
         ? `${label} body closed below its latest structural low.`
-        : `${label} EMA is falling and price is below it.`;
+        : `${label} has a lower high and lower low structure.`;
     }
 
     return {
@@ -330,9 +338,13 @@
       direction,
       reason,
       close: latest.close,
-      ema: round(latestEma),
       swingHigh: swingHigh ? round(swingHigh.price) : null,
       swingLow: swingLow ? round(swingLow.price) : null,
+      indicationLevel: direction === "bullish"
+        ? swingHigh ? round(swingHigh.price) : null
+        : direction === "bearish"
+          ? swingLow ? round(swingLow.price) : null
+          : null,
       bodyHigh: round(bodyHigh),
       bodyLow: round(bodyLow),
     };
@@ -411,6 +423,14 @@
       (bias.direction === "bullish" && latest.lastTap.isDemand) ||
       (bias.direction === "bearish" && !latest.lastTap.isDemand)
     ));
+    const rangeHigh = h1Bias.swingHigh ?? h4Bias.swingHigh;
+    const rangeLow = h1Bias.swingLow ?? h4Bias.swingLow;
+    const rangeSpan = rangeHigh !== null && rangeLow !== null ? Math.abs(rangeHigh - rangeLow) : null;
+    const rangeBuffer = rangeSpan ? Math.max(rangeSpan * 0.12, Math.abs(latest.close) * 0.0004) : null;
+    const rangeFallback = bias.direction === "neutral" && rangeHigh !== null && rangeLow !== null && rangeSpan > 0;
+    const nearSupport = Boolean(rangeFallback && latest.close <= rangeLow + rangeBuffer);
+    const nearResistance = Boolean(rangeFallback && latest.close >= rangeHigh - rangeBuffer);
+    const newestZoneInvalidated = Boolean(execution.zones[0]?.invalidated);
 
     let className = "wait";
     let label = "STATUS: WAIT";
@@ -431,11 +451,23 @@
       note = "HTF bias and 5M supply/demand trigger both point down.";
     } else if (bias.direction === "neutral" || conflict) {
       className = "no-trade";
-      label = "STATUS: NO TRADE";
-      phase = conflict ? "SHIFT OF GEARS CHECK" : "BASELINE SCAN";
-      note = conflict
-        ? "5M trigger conflicts with higher-timeframe bias. Stand aside."
-        : "No clear HTF indication yet. Stand aside.";
+      if (nearSupport) {
+        className = "wait";
+        label = "STATUS: WAIT RANGE BUY";
+        phase = "SUPPORT / RESISTANCE";
+        note = "Market is ranging. Only consider the support floor with strict 1:1 risk.";
+      } else if (nearResistance) {
+        className = "wait";
+        label = "STATUS: WAIT RANGE SELL";
+        phase = "SUPPORT / RESISTANCE";
+        note = "Market is ranging. Only consider the resistance ceiling with strict 1:1 risk.";
+      } else {
+        label = "STATUS: NO TRADE";
+        phase = conflict ? "SHIFT OF GEARS CHECK" : "BASELINE SCAN";
+        note = conflict
+          ? "5M trigger conflicts with higher-timeframe bias. Stand aside."
+          : "No clear HTF indication yet. Stand aside.";
+      }
     } else if (hasAlignedTap) {
       label = bias.direction === "bullish" ? "STATUS: WAIT FOR BUY" : "STATUS: WAIT FOR SELL";
       phase = "CORRECTION";
@@ -453,6 +485,8 @@
     if (hasAlignedTap) confidence += 15;
     if (alignedBuy || alignedSell) confidence += 20;
     if (latest.aPlusBuy || latest.aPlusSell) confidence += 10;
+    if (nearSupport || nearResistance) confidence += 10;
+    if (newestZoneInvalidated) confidence = Math.min(confidence, 35);
     if (conflict) confidence = Math.min(confidence, 25);
     confidence = Math.max(0, Math.min(100, confidence));
 
@@ -467,10 +501,13 @@
       h4Bias,
       execution,
       checklist: [
-        { label: "4H/1H bias", ok: bias.direction !== "neutral", text: bias.reason },
-        { label: "5M trend alignment", ok: (bias.direction === "bullish" && latest.bull) || (bias.direction === "bearish" && latest.bear), text: latest.bull ? "5M is rising." : latest.bear ? "5M is falling." : "5M is not directional." },
+        { label: "ICC phase", ok: phase !== "BASELINE SCAN", text: `${phase}: ${note}` },
+        { label: "4H/1H bias", ok: bias.direction !== "neutral", text: `${bias.reason} Indication level: ${bias.direction === "bullish" ? h4Bias.indicationLevel ?? h1Bias.indicationLevel ?? "-" : bias.direction === "bearish" ? h4Bias.indicationLevel ?? h1Bias.indicationLevel ?? "-" : "-"}.` },
+        { label: "5M structure alignment", ok: (bias.direction === "bullish" && latest.bull) || (bias.direction === "bearish" && latest.bear), text: latest.bull ? "5M market structure is bullish." : latest.bear ? "5M market structure is bearish." : "5M has no clean market-structure direction." },
         { label: "Zone tap", ok: hasAlignedTap, text: hasAlignedTap ? "Price has tapped a live supply/demand zone aligned with HTF bias." : "Waiting for price to tap the newest valid zone in the HTF direction." },
         { label: "Entry trigger", ok: alignedBuy || alignedSell, text: alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : "No aligned break-of-candle trigger yet." },
+        { label: "Invalidation", ok: !newestZoneInvalidated, text: newestZoneInvalidated ? "Newest zone was body-closed through. Wait for minor structure reset." : "No body-close invalidation on the newest tracked zone." },
+        { label: "Range fallback", ok: nearSupport || nearResistance || !rangeFallback, text: rangeFallback ? `Range floor ${rangeLow}, ceiling ${rangeHigh}. ${nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait."}` : "Not using support/resistance fallback while HTF bias is active." },
       ],
       risk: calculateRiskPlan(latest, bias.direction),
     };

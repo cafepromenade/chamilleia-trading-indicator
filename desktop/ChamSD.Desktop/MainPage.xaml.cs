@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
+using Windows.Foundation;
 
 namespace ChamSD_Desktop;
 
@@ -21,6 +22,7 @@ public sealed partial class MainPage : Page
     private readonly MarketDataService _marketData = new();
     private readonly StrategyEngine _strategyEngine = new();
     private readonly WebhookService _webhookService = new();
+    private readonly OpenCodeThinkingService _thinkingService = new();
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(60) };
     private readonly ObservableCollection<WebhookEndpoint> _webhooks = new();
     private readonly SolidColorBrush _chartTextBrush = Brush(0xFFD8DEE9);
@@ -29,6 +31,7 @@ public sealed partial class MainPage : Page
     private MarketConfig? _currentMarket;
     private string? _lastStatusLabel;
     private bool _isLoading;
+    private bool _isThinking;
 
     public MainPage()
     {
@@ -88,6 +91,10 @@ public sealed partial class MainPage : Page
             if (!string.IsNullOrWhiteSpace(previousStatus) && previousStatus != decision.Label)
             {
                 await SendStatusChangeWebhooksAsync();
+                if (AutoThinkCheckBox.IsChecked == true)
+                {
+                    await RunThinkingAsync();
+                }
             }
         }
         catch (Exception ex)
@@ -213,6 +220,7 @@ public sealed partial class MainPage : Page
 
         var width = Math.Max(ChartCanvas.ActualWidth, 720);
         var height = Math.Max(ChartCanvas.ActualHeight, 360);
+        ChartCanvas.Clip = new RectangleGeometry { Rect = new Rect(0, 0, width, height) };
         const double padLeft = 44;
         const double padRight = 72;
         const double padTop = 38;
@@ -251,16 +259,24 @@ public sealed partial class MainPage : Page
 
         if (_currentDecision is not null)
         {
-            foreach (var zone in _currentDecision.Execution.Zones.Where(zone => zone.Top >= priceMin && zone.Bot <= priceMax).Take(4))
+            foreach (var zone in _currentDecision.Execution.Zones.Where(zone => zone.Top >= priceMin && zone.Bot <= priceMax && zone.Top <= priceMax && zone.Bot >= priceMin).Take(4))
             {
-                var yTop = YFor(zone.Top);
-                var yBot = YFor(zone.Bot);
+                var visibleTop = Math.Clamp(zone.Top, priceMin, priceMax);
+                var visibleBot = Math.Clamp(zone.Bot, priceMin, priceMax);
+                var yTop = YFor(visibleTop);
+                var yBot = YFor(visibleBot);
+                var zoneHeight = Math.Abs(yBot - yTop);
+                if (zoneHeight < 2 || zoneHeight > chartHeight * 0.28)
+                {
+                    continue;
+                }
+
                 var rect = new Rectangle
                 {
                     Width = chartWidth,
-                    Height = Math.Max(2, Math.Abs(yBot - yTop)),
+                    Height = Math.Max(2, zoneHeight),
                     Fill = Brush(zone.IsDemand ? 0xFF1F9D55u : 0xFFD64545u),
-                    Opacity = 0.18,
+                    Opacity = 0.14,
                 };
                 Canvas.SetLeft(rect, padLeft);
                 Canvas.SetTop(rect, Math.Min(yTop, yBot));
@@ -402,6 +418,88 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private async Task RunThinkingAsync()
+    {
+        if (_isThinking)
+        {
+            return;
+        }
+
+        if (_currentDecision is null || _currentMarket is null)
+        {
+            ThinkingTextBox.Text = "OpenCode prediction needs live market data first.";
+            return;
+        }
+
+        _isThinking = true;
+        ThinkButton.IsEnabled = false;
+        ThinkingTextBox.Text = "Thinking and predicting with opencode...";
+
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
+            ThinkingTextBox.Text = await _thinkingService.ThinkAsync(BuildThinkingPrompt(_currentMarket, _currentDecision), timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            ThinkingTextBox.Text = "opencode prediction timed out.";
+        }
+        catch (Exception ex)
+        {
+            ThinkingTextBox.Text = $"opencode prediction failed: {ex.Message}";
+        }
+        finally
+        {
+            ThinkButton.IsEnabled = true;
+            _isThinking = false;
+        }
+    }
+
+    private static string BuildThinkingPrompt(MarketConfig market, StrategyDecision decision)
+    {
+        var checklist = string.Join(Environment.NewLine, decision.Checklist.Select(item =>
+            $"- {item.Label}: {(item.Ok ? "YES" : "WAIT")} - {item.Text}"));
+
+        return $"""
+You are the thinking and prediction layer for a trading-status bot.
+Use only the live facts below. Do not invent prices, news, or certainty.
+Predict the next likely market state from Chamilleia price action, ICC phases, and supply/demand market structure only.
+Do not use EMA, indicators, outside news, or made-up candles.
+Do not tell the user this is guaranteed, and do not place trades.
+Use simple language a beginner can understand.
+Output exactly these four sections and keep each section short:
+THINKING:
+PREDICTION:
+INVALIDATION:
+FINAL BOT READ: {decision.Label}
+
+Market: {market.Name}
+Symbol: {market.Symbol}
+Status: {decision.Label}
+Phase: {decision.Phase}
+Confidence: {decision.Confidence}%
+Higher-timeframe bias: {decision.Bias.Direction} from {decision.Bias.Source}
+Reason: {decision.Bias.Reason}
+Last close: {decision.Execution.Latest.Close}
+Risk entry: {decision.Risk.Entry?.ToString() ?? "-"}
+Risk stop: {decision.Risk.Stop?.ToString() ?? "-"}
+Risk TP1: {decision.Risk.TargetOne?.ToString() ?? "-"}
+Risk TP2: {decision.Risk.TargetTwo?.ToString() ?? "-"}
+Risk note: {decision.Risk.Text}
+
+Strategy rules:
+- 4H overrides 1H. HTF body-close breakout creates the indication level.
+- 5M/15M waits for correction, newest supply/demand zone tap, then break-of-candle continuation.
+- Demand is the last red candle before an aggressive push up. Supply is the last green candle before an aggressive push down.
+- If a candle body closes through the zone, the zone is invalid and the bot waits for minor structure reset.
+- If market is ranging, use support/resistance only and keep targets strict.
+- Stop goes outside the tapped zone. TP1 is 1:1 and TP2 is 1:2.
+
+Checklist:
+{checklist}
+""";
+    }
+
     private void AppendLog(string message)
     {
         WebhookLogTextBox.Text = $"[{DateTimeOffset.Now:HH:mm:ss}] {message}{Environment.NewLine}{WebhookLogTextBox.Text}";
@@ -464,6 +562,11 @@ public sealed partial class MainPage : Page
         {
             await SendEndpointAsync(endpoint);
         }
+    }
+
+    private async void ThinkButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunThinkingAsync();
     }
 
     private void AddHeaderButton_Click(object sender, RoutedEventArgs e)

@@ -26,7 +26,6 @@ public sealed class ChamilleiaLatest
     public string ClassName { get; init; } = "wait";
     public int Bar { get; init; }
     public double Close { get; init; }
-    public double? Ema { get; init; }
     public bool Bull { get; init; }
     public bool Bear { get; init; }
     public bool BuyTrigger { get; init; }
@@ -51,9 +50,9 @@ public sealed class HtfBias
     public string Direction { get; init; } = "neutral";
     public string Reason { get; init; } = string.Empty;
     public double Close { get; init; }
-    public double? Ema { get; init; }
     public double? SwingHigh { get; init; }
     public double? SwingLow { get; init; }
+    public double? IndicationLevel { get; init; }
 }
 
 public sealed class BiasChoice

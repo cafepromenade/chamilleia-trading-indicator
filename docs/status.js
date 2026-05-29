@@ -336,8 +336,8 @@
       engineFacts.innerHTML = [
         renderFact("Market", market.name),
         renderFact("Last close", "-"),
-        renderFact("EMA", "-"),
-        renderFact("Zones found", "-"),
+        renderFact("HTF bias", "-"),
+        renderFact("Confidence", "-"),
         renderFact("Last candle", "-"),
         renderFact("Source", market.source),
       ].join("");

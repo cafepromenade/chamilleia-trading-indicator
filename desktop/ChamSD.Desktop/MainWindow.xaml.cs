@@ -30,7 +30,15 @@ public sealed partial class MainWindow : Window
 
     private void ConfigureFixedWindow()
     {
-        AppWindow.Resize(new SizeInt32(1500, 950));
+        var displayArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
+        var workArea = displayArea.WorkArea;
+        var width = Math.Min(1880, Math.Max(1, workArea.Width - 20));
+        var height = Math.Min(1040, Math.Max(1, workArea.Height - 20));
+
+        AppWindow.Resize(new SizeInt32(width, height));
+        AppWindow.Move(new PointInt32(
+            workArea.X + Math.Max(0, (workArea.Width - width) / 2),
+            workArea.Y + Math.Max(0, (workArea.Height - height) / 2)));
 
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
