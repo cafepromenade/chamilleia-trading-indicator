@@ -234,7 +234,7 @@ public sealed class StrategyEngine
                     Label = "Minor BOS reset",
                     Ok = !newestZoneInvalidated || exceptions.MinorResetReady,
                     Text = newestZoneInvalidated
-                        ? exceptions.MinorResetReady ? "Zone failed, but minor structure is rebuilding in the HTF direction." : "Do not jump to the next zone. Wait for a stair-step minor break of structure."
+                        ? exceptions.MinorResetText
                         : "No failed zone needs a minor-BOS reset right now.",
                 },
                 new ChecklistItem
@@ -600,6 +600,50 @@ public sealed class StrategyEngine
         return "Aggressive entry would mean pressing inside the zone; safest rule waits for candle close and next-candle break.";
     }
 
+    private static (bool Ready, string Text) AnalyzeMinorBosReset(IReadOnlyList<MarketCandle> candles, string direction, Zone? newestZone)
+    {
+        if (newestZone?.Invalidated != true || direction == "neutral")
+        {
+            return (false, "No failed zone needs a minor-BOS reset right now.");
+        }
+
+        var afterZone = candles.Skip(Math.Max(0, newestZone.CreatedAt + 1)).ToList();
+        if (afterZone.Count < 8)
+        {
+            return (false, "Zone failed, but there are not enough new 5M candles to prove a stair-step reset.");
+        }
+
+        var pivots = FindPivots(afterZone, PivotLen);
+        var lastClose = candles[^1].Close;
+        if (direction == "bullish")
+        {
+            var lows = pivots.Lows.TakeLast(2).ToList();
+            var highs = pivots.Highs.TakeLast(2).ToList();
+            var secondHigherLow = lows.Count >= 2 && lows[1].Value > lows[0].Value;
+            var breakAboveMinorHigh = highs.Count > 0 && lastClose > highs[^1].Value;
+            return (
+                secondHigherLow && breakAboveMinorHigh,
+                secondHigherLow && breakAboveMinorHigh
+                    ? "Zone failed, then 5M printed a second higher low and broke minor structure upward."
+                    : "Zone failed. Wait for a second higher low and a body-close break above minor structure before re-arming buys.");
+        }
+
+        if (direction == "bearish")
+        {
+            var highs = pivots.Highs.TakeLast(2).ToList();
+            var lows = pivots.Lows.TakeLast(2).ToList();
+            var secondLowerHigh = highs.Count >= 2 && highs[1].Value < highs[0].Value;
+            var breakBelowMinorLow = lows.Count > 0 && lastClose < lows[^1].Value;
+            return (
+                secondLowerHigh && breakBelowMinorLow,
+                secondLowerHigh && breakBelowMinorLow
+                    ? "Zone failed, then 5M printed a second lower high and broke minor structure downward."
+                    : "Zone failed. Wait for a second lower high and a body-close break below minor structure before re-arming sells.");
+        }
+
+        return (false, "No valid minor-BOS reset direction is available yet.");
+    }
+
     private static ExceptionRead AnalyzeExceptions(
         IReadOnlyList<MarketCandle> executionCandles,
         IReadOnlyList<MarketCandle> d1Candles,
@@ -625,9 +669,10 @@ public sealed class StrategyEngine
         var noUpsideTarget = bias.Direction == "bullish" && latest.Close >= historyHigh - historyBuffer;
         var noDownsideTarget = bias.Direction == "bearish" && latest.Close <= historyLow + historyBuffer;
         var noHistoricalTarget = noUpsideTarget || noDownsideTarget;
-        var minorResetReady = newestZoneInvalidated && (
-            bias.Direction == "bullish" && latest.Bull && m15Bias.Direction != "bearish" ||
-            bias.Direction == "bearish" && latest.Bear && m15Bias.Direction != "bullish");
+        var minorReset = AnalyzeMinorBosReset(executionCandles, bias.Direction, newestZone);
+        var minorResetReady = newestZoneInvalidated && minorReset.Ready && (
+            bias.Direction == "bullish" && m15Bias.Direction != "bearish" ||
+            bias.Direction == "bearish" && m15Bias.Direction != "bullish");
         var counterTrend = d1Bias.Direction != "neutral" && bias.Direction != "neutral" && d1Bias.Direction != bias.Direction;
         var counterBreakReady = counterTrend && (
             bias.Direction == "bullish" && latest.Bull && m15Bias.Direction == "bullish" ||
@@ -643,6 +688,7 @@ public sealed class StrategyEngine
             Round(historyLow),
             noHistoricalTarget,
             minorResetReady,
+            minorReset.Text,
             counterTrend,
             counterBreakReady,
             shiftOfGears,
@@ -835,6 +881,7 @@ public sealed class StrategyEngine
         double? HistoryLow,
         bool NoHistoricalTarget,
         bool MinorResetReady,
+        string MinorResetText,
         bool CounterTrend,
         bool CounterBreakReady,
         bool ShiftOfGears,

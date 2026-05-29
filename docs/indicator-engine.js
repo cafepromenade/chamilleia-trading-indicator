@@ -481,6 +481,56 @@
       : "Aggressive entry would mean pressing inside the zone; safest rule waits for candle close and next-candle break.";
   }
 
+  function analyzeMinorBosReset(candles, direction, newestZone) {
+    if (!newestZone?.invalidated || direction === "neutral") {
+      return {
+        ready: false,
+        text: "No failed zone needs a minor-BOS reset right now.",
+      };
+    }
+
+    const afterZone = candles.slice(Math.max(0, newestZone.createdAt + 1));
+    if (afterZone.length < 8) {
+      return {
+        ready: false,
+        text: "Zone failed, but there are not enough new 5M candles to prove a stair-step reset.",
+      };
+    }
+
+    const pivots = findPivots(afterZone, DEFAULT_SETTINGS.pivotLen);
+    const lastClose = candles[candles.length - 1].close;
+    if (direction === "bullish") {
+      const lows = pivots.lows.slice(-2);
+      const highs = pivots.highs.slice(-2);
+      const secondHigherLow = lows.length >= 2 && lows[1].value > lows[0].value;
+      const breakAboveMinorHigh = highs.length > 0 && lastClose > highs[highs.length - 1].value;
+      return {
+        ready: secondHigherLow && breakAboveMinorHigh,
+        text: secondHigherLow && breakAboveMinorHigh
+          ? "Zone failed, then 5M printed a second higher low and broke minor structure upward."
+          : "Zone failed. Wait for a second higher low and a body-close break above minor structure before re-arming buys.",
+      };
+    }
+
+    if (direction === "bearish") {
+      const highs = pivots.highs.slice(-2);
+      const lows = pivots.lows.slice(-2);
+      const secondLowerHigh = highs.length >= 2 && highs[1].value < highs[0].value;
+      const breakBelowMinorLow = lows.length > 0 && lastClose < lows[lows.length - 1].value;
+      return {
+        ready: secondLowerHigh && breakBelowMinorLow,
+        text: secondLowerHigh && breakBelowMinorLow
+          ? "Zone failed, then 5M printed a second lower high and broke minor structure downward."
+          : "Zone failed. Wait for a second lower high and a body-close break below minor structure before re-arming sells.",
+      };
+    }
+
+    return {
+      ready: false,
+      text: "No valid minor-BOS reset direction is available yet.",
+    };
+  }
+
   function analyzeExceptions({ executionCandles, d1Candles, latest, bias, d1Bias, m15Bias, newestZone }) {
     const recent = executionCandles.slice(-24);
     const recentHigh = Math.max(...recent.map((candle) => candle.high));
@@ -498,9 +548,10 @@
     const noUpsideTarget = bias.direction === "bullish" && latest.close >= historyHigh - historyBuffer;
     const noDownsideTarget = bias.direction === "bearish" && latest.close <= historyLow + historyBuffer;
     const noHistoricalTarget = noUpsideTarget || noDownsideTarget;
-    const minorResetReady = newestZoneInvalidated && (
-      (bias.direction === "bullish" && latest.bull && m15Bias.direction !== "bearish") ||
-      (bias.direction === "bearish" && latest.bear && m15Bias.direction !== "bullish")
+    const minorReset = analyzeMinorBosReset(executionCandles, bias.direction, newestZone);
+    const minorResetReady = newestZoneInvalidated && minorReset.ready && (
+      (bias.direction === "bullish" && m15Bias.direction !== "bearish") ||
+      (bias.direction === "bearish" && m15Bias.direction !== "bullish")
     );
     const counterTrend = d1Bias.direction !== "neutral" && bias.direction !== "neutral" && d1Bias.direction !== bias.direction;
     const counterBreakReady = counterTrend && (
@@ -518,6 +569,7 @@
       historyLow: round(historyLow),
       noHistoricalTarget,
       minorResetReady,
+      minorResetText: minorReset.text,
       counterTrend,
       counterBreakReady,
       shiftOfGears,
@@ -674,7 +726,7 @@
         { label: "Entry trigger", ok: alignedBuy || alignedSell, text: alignedBuy || alignedSell ? "Break-of-candle trigger is aligned." : entryModeText(latest, bias.direction, hasAlignedTap) },
         { label: "Stop/exit plan", ok: risk.stopWithinLimit, text: risk.text },
         { label: "Invalidation", ok: !newestZoneInvalidated, text: newestZoneInvalidated ? "Newest zone was body-closed through. Wait for minor structure reset." : "No body-close invalidation on the newest tracked zone." },
-        { label: "Minor BOS reset", ok: !newestZoneInvalidated || exceptions.minorResetReady, text: newestZoneInvalidated ? (exceptions.minorResetReady ? "Zone failed, but minor structure is rebuilding in the HTF direction." : "Do not jump to the next zone. Wait for a stair-step minor break of structure.") : "No failed zone needs a minor-BOS reset right now." },
+        { label: "Minor BOS reset", ok: !newestZoneInvalidated || exceptions.minorResetReady, text: newestZoneInvalidated ? exceptions.minorResetText : "No failed zone needs a minor-BOS reset right now." },
         { label: "Shift of gears", ok: !exceptions.shiftOfGears, text: exceptions.shiftOfGears ? `Continuation failed aggressively through the stop/pullback extreme. Treat this as a fresh ${exceptions.shiftDirection} indication, not an immediate trade.` : "No failed continuation has crossed the stop/pullback extreme." },
         { label: "Range fallback", ok: nearSupport || nearResistance || !rangeFallback, text: rangeFallback ? `Range floor ${rangeLow}, ceiling ${rangeHigh}. ${nearSupport || nearResistance ? "Price is near an edge." : "Price is in the middle, so wait."}` : "Not using support/resistance fallback while HTF bias is active." },
         { label: "Consolidation/ATH filter", ok: !exceptions.consolidation && !exceptions.noHistoricalTarget, text: exceptions.consolidation ? "Random consolidation detected from recent 5M compression. Abort trend scanning until price escapes." : exceptions.noHistoricalTarget ? `Near available daily-history edge (${exceptions.historyLow}-${exceptions.historyHigh}); skip if there is no clean structural target.` : "Not boxed in and not at the available daily-history edge." },
